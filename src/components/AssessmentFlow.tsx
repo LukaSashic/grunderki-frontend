@@ -128,7 +128,6 @@ export const AssessmentFlow: React.FC = () => {
     error: null,
   });
 
-  const [hasStarted, setHasStarted] = useState(false);
 
   // Handle Progressive Intake Completion
   const handleIntakeComplete = async (intakeData: IntakeData) => {
@@ -174,7 +173,7 @@ export const AssessmentFlow: React.FC = () => {
         isLoading: false,
       }));
 
-      setHasStarted(true);
+     
 
     } catch (error: any) {
       console.error('Failed to start assessment:', error);
@@ -205,7 +204,6 @@ export const AssessmentFlow: React.FC = () => {
           isLoading: false,
         }));
         
-        setHasStarted(true);
       } else {
         setState(prev => ({
           ...prev,
