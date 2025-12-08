@@ -427,7 +427,8 @@ if (state.isComplete) {
                 <div className="mt-6 p-4 bg-white bg-opacity-20 rounded-lg">
                   <h4 className="font-semibold mb-2">✅ Ihre Stärken:</h4>
                   <ul className="space-y-1 text-sm">
-                    {state.results.gz_prediction.key_strengths.map((strength, idx) => (
+                    {state.results.gz_prediction.key_strengths.map((strength: string, idx: number) => (
+
                       <li key={idx}>• {strength}</li>
                     ))}
                   </ul>
@@ -439,7 +440,7 @@ if (state.isComplete) {
                 <div className="mt-4 p-4 bg-white bg-opacity-20 rounded-lg">
                   <h4 className="font-semibold mb-2">💡 Zu beachten im Businessplan:</h4>
                   <ul className="space-y-1 text-sm">
-                    {state.results.gz_prediction.areas_to_address.map((area, idx) => (
+                    {state.results.gz_prediction.areas_to_address.map((area: string, idx: number) => (
                       <li key={idx}>• {area}</li>
                     ))}
                   </ul>

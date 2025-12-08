@@ -1,7 +1,6 @@
 // src/App.tsx
 // Main application component
 
-import React from 'react';
 import AssessmentFlow from './components/AssessmentFlow';
 
 function App() {
