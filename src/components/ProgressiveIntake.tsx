@@ -15,12 +15,9 @@ interface IntakeData {
 
 interface ProgressiveIntakeProps {
   onComplete: (data: IntakeData) => void;
-  initialStep?: string;  // ✨ NEW
-  maxStep?: string;      // ✨ NEW
-  userName?: string;     // ✨ NEW
 }
 
-export const ProgressiveIntake: React.FC<Props> = ({ onComplete }) => {
+export const ProgressiveIntake = ({ onComplete }: ProgressiveIntakeProps) => {
   const [step, setStep] = useState(1);
   const [data, setData] = useState<Partial<IntakeData>>({});
   const [email, setEmail] = useState('');

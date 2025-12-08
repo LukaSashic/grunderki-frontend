@@ -391,15 +391,12 @@ export const AssessmentFlow: React.FC = () => {
 
   // STAGE 1: Basic Info (Name + Email only)
   if (state.stage === 'basic_info') {
-    return (
-      <ProgressiveIntake 
-        onComplete={handleBasicInfoComplete}
-        // ✨ Only show name and email steps
-        initialStep="name"
-        maxStep="email"
-      />
-    );
-  }
+  return (
+    <ProgressiveIntake 
+      onComplete={handleBasicInfoComplete}
+    />
+  );
+}
 
   // ✨ NEW: STAGE 2: Socratic Business Idea Discovery
   if (state.stage === 'socratic') {
@@ -414,15 +411,12 @@ export const AssessmentFlow: React.FC = () => {
 
   // ✨ NEW: STAGE 3: Context Questions (rest of intake)
   if (state.stage === 'context_questions') {
-    return (
-      <ProgressiveIntake 
-        onComplete={handleContextQuestionsComplete}
-        // ✨ Start from businessType, skip name/email/businessIdea
-        initialStep="businessType"
-        userName={state.name}
-      />
-    );
-  }
+  return (
+    <ProgressiveIntake 
+      onComplete={handleContextQuestionsComplete}
+    />
+  );
+}
 
   // Loading state
   if (state.isLoading && !state.currentQuestion) {
