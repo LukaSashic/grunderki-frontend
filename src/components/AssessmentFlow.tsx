@@ -1,9 +1,13 @@
 // src/components/AssessmentFlow.tsx
-// Main assessment component with Progressive Intake and API integration
+// Main assessment component with Socratic Business Idea + Progressive Intake + API integration
+// 
+// ✨ NEW: Integrated Socratic Business Idea Discovery
+// Flow: Name/Email → Socratic Dialogue → Context Questions → Assessment → Results
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ProgressiveIntake } from './ProgressiveIntake';
+import { SocraticBusinessIdea } from './SocraticBusinessIdea'; // ✨ NEW IMPORT
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -59,6 +63,16 @@ interface IntakeData {
   growthVision: string;
 }
 
+// ✨ NEW: Business Context from Socratic Dialogue
+interface BusinessContext {
+  what?: string;
+  who?: string;
+  problem?: string;
+  why_you?: string;
+  how?: string;
+  confidence: number;
+}
+
 interface Question {
   id: string;
   text_de: string;
@@ -91,7 +105,17 @@ interface NextQuestionResponse {
   is_complete: boolean;
 }
 
+// ✨ UPDATED: New state structure with flow stages
 interface AssessmentState {
+  // Flow Control - NEW!
+  stage: 'basic_info' | 'socratic' | 'context_questions' | 'assessment' | 'results';
+  
+  // User Data - Split from intakeData
+  name: string;
+  email: string;
+  businessIdea: string;
+  businessContext: BusinessContext | null; // ✨ NEW
+  
   // Progressive Intake
   intakeComplete: boolean;
   intakeData: IntakeData | null;
@@ -111,6 +135,15 @@ interface AssessmentState {
 
 export const AssessmentFlow: React.FC = () => {
   const [state, setState] = useState<AssessmentState>({
+    // ✨ NEW: Flow stages
+    stage: 'basic_info',
+    
+    // ✨ NEW: Separate user data
+    name: '',
+    email: '',
+    businessIdea: '',
+    businessContext: null,
+    
     // Progressive Intake
     intakeComplete: false,
     intakeData: null,
@@ -128,15 +161,50 @@ export const AssessmentFlow: React.FC = () => {
     error: null,
   });
 
+  // ✨ NEW: Handler for basic info (name + email only)
+  const handleBasicInfoComplete = (intakeData: IntakeData) => {
+    console.log('Basic info collected:', intakeData.name, intakeData.email);
+    
+    setState(prev => ({
+      ...prev,
+      name: intakeData.name,
+      email: intakeData.email,
+      stage: 'socratic', // ✨ Move to Socratic stage
+    }));
+  };
 
-  // Handle Progressive Intake Completion
-  const handleIntakeComplete = async (intakeData: IntakeData) => {
-    console.log('Intake completed:', intakeData);
+  // ✨ NEW: Handler for Socratic dialogue completion
+  const handleSocraticComplete = (context: BusinessContext, summary: string) => {
+    console.log('Socratic dialogue completed:', { context, summary });
+    
+    setState(prev => ({
+      ...prev,
+      businessIdea: summary,
+      businessContext: context,
+      stage: 'context_questions', // ✨ Move to context questions
+    }));
+  };
+
+  // ✨ UPDATED: Handle context questions completion (rest of intake)
+  const handleContextQuestionsComplete = async (intakeData: IntakeData) => {
+    console.log('Context questions completed:', intakeData);
+    
+    // Combine all collected data
+    const fullIntakeData: IntakeData = {
+      name: state.name,
+      email: state.email,
+      businessIdea: state.businessIdea,
+      businessType: intakeData.businessType,
+      experienceLevel: intakeData.experienceLevel,
+      timeline: intakeData.timeline,
+      gzInterest: intakeData.gzInterest,
+      growthVision: intakeData.growthVision,
+    };
     
     setState(prev => ({
       ...prev,
       intakeComplete: true,
-      intakeData: intakeData,
+      intakeData: fullIntakeData,
       isLoading: true,
     }));
 
@@ -144,14 +212,15 @@ export const AssessmentFlow: React.FC = () => {
       // 1. Save intake to backend
       console.log('Saving intake data to backend...');
       const intakeResponse = await api.post('/api/v1/intake', {
-        name: intakeData.name,
-        email: intakeData.email,
-        business_idea: intakeData.businessIdea,
-        business_type: intakeData.businessType,
-        experience_level: intakeData.experienceLevel,
-        timeline: intakeData.timeline,
-        gz_interest: intakeData.gzInterest,
-        growth_vision: intakeData.growthVision,
+        name: fullIntakeData.name,
+        email: fullIntakeData.email,
+        business_idea: fullIntakeData.businessIdea,
+        business_context: state.businessContext, // ✨ NEW: Send Socratic context
+        business_type: fullIntakeData.businessType,
+        experience_level: fullIntakeData.experienceLevel,
+        timeline: fullIntakeData.timeline,
+        gz_interest: fullIntakeData.gzInterest,
+        growth_vision: fullIntakeData.growthVision,
       });
       
       console.log('Intake saved:', intakeResponse.data);
@@ -167,13 +236,12 @@ export const AssessmentFlow: React.FC = () => {
 
       setState(prev => ({
         ...prev,
+        stage: 'assessment', // ✨ Move to assessment stage
         sessionId: sessionId,
         currentQuestion: assessmentResponse.data.first_question,
         questionStartTime: Date.now(),
         isLoading: false,
       }));
-
-     
 
     } catch (error: any) {
       console.error('Failed to start assessment:', error);
@@ -182,11 +250,11 @@ export const AssessmentFlow: React.FC = () => {
       if (error.message.includes('Network Error') || error.response?.status >= 500) {
         console.warn('Backend unavailable, starting local assessment...');
         
-        // Generate local session ID
         const localSessionId = `local_${Date.now()}`;
         
         setState(prev => ({
           ...prev,
+          stage: 'assessment',
           sessionId: localSessionId,
           currentQuestion: {
             id: "INNOV_001",
@@ -214,7 +282,7 @@ export const AssessmentFlow: React.FC = () => {
     }
   };
 
-  // Submit Response
+  // Submit Response (unchanged)
   const submitResponse = async (value: number) => {
     if (!state.currentQuestion || !state.sessionId) return;
 
@@ -247,7 +315,8 @@ export const AssessmentFlow: React.FC = () => {
       if (response.data.is_complete || !response.data.question) {
         console.log('Assessment complete! Loading results...');
         setState(prev => ({ 
-          ...prev, 
+          ...prev,
+          stage: 'results', // ✨ Move to results stage
           isComplete: true,
           currentQuestion: null 
         }));
@@ -270,7 +339,7 @@ export const AssessmentFlow: React.FC = () => {
     }
   };
 
-  // Fetch results
+  // Fetch results (unchanged)
   const fetchResults = async () => {
     if (!state.sessionId) return;
 
@@ -298,10 +367,10 @@ export const AssessmentFlow: React.FC = () => {
 
   // Effect: Fetch results when complete
   useEffect(() => {
-    if (state.isComplete && state.sessionId) {
+    if (state.stage === 'results' && state.sessionId && !state.results) {
       fetchResults();
     }
-  }, [state.isComplete]);
+  }, [state.stage]);
 
   // Test API connection on mount
   useEffect(() => {
@@ -316,9 +385,43 @@ export const AssessmentFlow: React.FC = () => {
     testConnection();
   }, []);
 
-  // Render: Progressive Intake (if not completed)
-  if (!state.intakeComplete) {
-    return <ProgressiveIntake onComplete={handleIntakeComplete} />;
+  // ============================================================================
+  // ✨ NEW: STAGE-BASED RENDERING
+  // ============================================================================
+
+  // STAGE 1: Basic Info (Name + Email only)
+  if (state.stage === 'basic_info') {
+    return (
+      <ProgressiveIntake 
+        onComplete={handleBasicInfoComplete}
+        // ✨ Only show name and email steps
+        initialStep="name"
+        maxStep="email"
+      />
+    );
+  }
+
+  // ✨ NEW: STAGE 2: Socratic Business Idea Discovery
+  if (state.stage === 'socratic') {
+    return (
+      <SocraticBusinessIdea
+        userName={state.name}
+        userEmail={state.email}
+        onComplete={handleSocraticComplete}
+      />
+    );
+  }
+
+  // ✨ NEW: STAGE 3: Context Questions (rest of intake)
+  if (state.stage === 'context_questions') {
+    return (
+      <ProgressiveIntake 
+        onComplete={handleContextQuestionsComplete}
+        // ✨ Start from businessType, skip name/email/businessIdea
+        initialStep="businessType"
+        userName={state.name}
+      />
+    );
   }
 
   // Loading state
@@ -327,7 +430,9 @@ export const AssessmentFlow: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
         <div className="bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Lädt Assessment...</p>
+          <p className="text-gray-600 text-lg">
+            {state.stage === 'assessment' ? 'Starte Assessment...' : 'Lädt...'}
+          </p>
         </div>
       </div>
     );
@@ -344,7 +449,16 @@ export const AssessmentFlow: React.FC = () => {
           </h2>
           <p className="text-gray-600 mb-6 text-center">{state.error}</p>
           <button 
-            onClick={() => setState(prev => ({ ...prev, error: null, intakeComplete: false }))}
+            onClick={() => setState(prev => ({ 
+              ...prev, 
+              error: null, 
+              stage: 'basic_info',
+              name: '',
+              email: '',
+              businessIdea: '',
+              businessContext: null,
+              intakeComplete: false
+            }))}
             className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
             Erneut versuchen
@@ -354,25 +468,23 @@ export const AssessmentFlow: React.FC = () => {
     );
   }
 
-  // Render: Question Screen
-  if (!state.isComplete && state.currentQuestion) {
+  // STAGE 4: Assessment Questions
+  if (state.stage === 'assessment' && state.currentQuestion) {
     return (
       <div className="max-w-3xl mx-auto p-6">
         <div className="bg-white rounded-lg shadow-lg p-8">
           {/* User Info Badge */}
-          {state.intakeData && (
-            <div className="mb-6 flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                  {state.intakeData.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-800">{state.intakeData.name}</p>
-                  <p className="text-xs text-gray-500">{state.intakeData.email}</p>
-                </div>
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                {state.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-800">{state.name}</p>
+                <p className="text-xs text-gray-500">{state.email}</p>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Progress Bar */}
           <div className="mb-6">
@@ -440,8 +552,8 @@ export const AssessmentFlow: React.FC = () => {
     );
   }
 
-  // Render: Completion Screen with Results
-  if (state.isComplete) {
+  // STAGE 5: Results
+  if (state.stage === 'results') {
     return (
       <div className="max-w-4xl mx-auto p-6">
         {/* Header */}
@@ -454,11 +566,9 @@ export const AssessmentFlow: React.FC = () => {
           <h2 className="text-3xl font-bold text-gray-800 mb-2">
             Assessment Abgeschlossen!
           </h2>
-          {state.intakeData && (
-            <p className="text-gray-600">
-              Vielen Dank, {state.intakeData.name}! Ihre Persönlichkeitsanalyse ist fertig.
-            </p>
-          )}
+          <p className="text-gray-600">
+            Vielen Dank, {state.name}! Ihre Persönlichkeitsanalyse ist fertig.
+          </p>
         </div>
 
         {/* Results Loading or Display */}

@@ -13,8 +13,11 @@ interface IntakeData {
   growthVision: string;
 }
 
-interface Props {
+interface ProgressiveIntakeProps {
   onComplete: (data: IntakeData) => void;
+  initialStep?: string;  // ✨ NEW
+  maxStep?: string;      // ✨ NEW
+  userName?: string;     // ✨ NEW
 }
 
 export const ProgressiveIntake: React.FC<Props> = ({ onComplete }) => {
