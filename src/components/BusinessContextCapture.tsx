@@ -254,10 +254,6 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
   const [userResponse, setUserResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
-  // Extracted data
-  const [problemDescription, setProblemDescription] = useState('');
-  const [uniqueApproach, setUniqueApproach] = useState('');
-  
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Focus input when entering AI phase
@@ -350,9 +346,6 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
         extracted.problem_description = userResponse.slice(0, 100);
       }
     }
-    
-    setProblemDescription(extracted.problem_description);
-    setUniqueApproach(extracted.unique_approach);
     
     setIsLoading(false);
     
