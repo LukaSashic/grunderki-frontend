@@ -494,21 +494,23 @@ const EmailInput: React.FC<EmailInputProps> = ({ userName, onSubmit }) => {
 };
 
 // ============================================================================
-// BUSINESS CONTEXT TYPE (for hybrid capture)
+// BUSINESS CONTEXT TYPE (for structured + AI capture)
 // ============================================================================
 
 interface BusinessContext {
+  // Structured
   category: string;
   categoryLabel: string;
   targetCustomer: string;
   targetCustomerLabel: string;
   stage: string;
   stageLabel: string;
-  specificNiche: string;
-  problemStatement: string;
-  uniqueValue: string;
+  // AI-Enhanced
+  problemDescription: string;
+  uniqueApproach: string;
+  // Metadata
   completedAt: string;
-  confidence: number;
+  captureMethod: 'structured' | 'ai_enhanced';
 }
 
 // ============================================================================
@@ -759,16 +761,15 @@ export const AssessmentFlow: React.FC = () => {
     setState(prev => ({ ...prev, businessContext: context, isLoading: true, error: null }));
 
     try {
-      // Save intake with full business context
+      // Save intake with business context
       await api.post('/api/v1/intake', {
         name: state.name,
         email: state.email,
         business_type: context.category,
-        business_idea: context.problemStatement,
         target_customer: context.targetCustomer,
         business_stage: context.stage,
-        specific_niche: context.specificNiche,
-        unique_value: context.uniqueValue,
+        problem_description: context.problemDescription,
+        unique_approach: context.uniqueApproach,
       });
 
       // Start assessment session with business context
@@ -777,11 +778,13 @@ export const AssessmentFlow: React.FC = () => {
         business_type: context.category,
         business_context: {
           category: context.category,
+          category_label: context.categoryLabel,
           target_customer: context.targetCustomer,
+          target_customer_label: context.targetCustomerLabel,
           stage: context.stage,
-          specific_niche: context.specificNiche,
-          problem_statement: context.problemStatement,
-          unique_value: context.uniqueValue,
+          stage_label: context.stageLabel,
+          problem_description: context.problemDescription,
+          unique_approach: context.uniqueApproach,
         }
       });
 

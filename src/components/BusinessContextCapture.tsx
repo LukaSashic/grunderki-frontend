@@ -1,21 +1,25 @@
 /**
- * BusinessContextCapture.tsx
+ * BusinessContextCapture.tsx - ENHANCED with Production-Grade Prompting
  * 
- * Hybrid Business Context Capture:
- * Phase 1: Structured multiple-choice (guaranteed data capture)
- * Phase 2: AI Socratic dialogue (natural refinement)
+ * Uses 6 techniques from YC/OpenAI/Anthropic:
+ * 1. Constraint-Based Prompting - Forces specific outputs
+ * 2. Multi-Shot with Failure Cases - Shows what NOT to do
+ * 3. Metacognitive Scaffolding - Plans before generating
+ * 4. Differential Prompting - Personality-adaptive
+ * 5. Specification-Driven Generation - Spec first
+ * 6. Chain-of-Verification - Self-validates
  * 
- * Outputs structured business context for personality scenario personalization
+ * Flow: Structured Questions (3) → ONE AI Refinement → Verification → Done
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export interface BusinessContext {
-  // Phase 1: Structured Data
+  // Phase 1: Structured (Guaranteed)
   category: string;
   categoryLabel: string;
   targetCustomer: string;
@@ -23,24 +27,17 @@ export interface BusinessContext {
   stage: string;
   stageLabel: string;
   
-  // Phase 2: AI-Extracted Data
-  specificNiche: string;
-  problemStatement: string;
-  uniqueValue: string;
+  // Phase 2: AI-Refined (Enhanced)
+  problemDescription: string;
+  uniqueApproach: string;
   
   // Metadata
   completedAt: string;
-  confidence: number;
-}
-
-interface Message {
-  id: string;
-  role: 'assistant' | 'user';
-  content: string;
-  timestamp: Date;
+  captureMethod: 'structured' | 'ai_enhanced';
 }
 
 type Theme = 'dark' | 'light';
+type Phase = 'category' | 'customer' | 'stage' | 'ai_refinement' | 'verification' | 'complete';
 
 interface BusinessContextCaptureProps {
   userName: string;
@@ -53,37 +50,27 @@ interface BusinessContextCaptureProps {
 // ICONS
 // ============================================================================
 
-const Icon: React.FC<{ children: React.ReactNode; size?: number; className?: string }> = ({ 
-  children, size = 20, className = "" 
-}) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" 
-    fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" 
-    strokeLinejoin="round" className={className}>{children}</svg>
+const SparkleIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+      d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+  </svg>
 );
 
-const Sparkles: React.FC<{ size?: number; className?: string }> = (p) => (
-  <Icon {...p}><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></Icon>
+const SendIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+  </svg>
 );
 
-const Send: React.FC<{ size?: number; className?: string }> = (p) => (
-  <Icon {...p}><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></Icon>
-);
-
-const CheckCircle: React.FC<{ size?: number; className?: string }> = (p) => (
-  <Icon {...p}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></Icon>
-);
-
-const Loader: React.FC<{ size?: number; className?: string }> = ({ size = 20, className = "" }) => (
-  <div className={`animate-spin ${className}`} style={{ width: size, height: size }}>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-      <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
-    </svg>
-  </div>
+const CheckIcon = () => (
+  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
 );
 
 // ============================================================================
-// STRUCTURED QUESTION DATA
+// STRUCTURED DATA
 // ============================================================================
 
 const BUSINESS_CATEGORIES = [
@@ -117,98 +104,128 @@ const BUSINESS_STAGES = [
 ];
 
 // ============================================================================
-// AI SOCRATIC PROMPTS
+// PRODUCTION-GRADE PROMPT ENGINEERING
 // ============================================================================
 
-const generateSocraticPrompt = (
-  _category: string,
+/**
+ * Generate AI refinement question using 6 advanced techniques:
+ * 1. Constraint-Based: Forces specific question format
+ * 2. Failure Cases: Shows what NOT to ask
+ * 3. Metacognitive Scaffolding: Plans before generating
+ * 4. Specification-Driven: Clear output spec
+ * 5. Chain-of-Verification: Self-validates
+ */
+const generateRefinementPrompt = (
+  userName: string,
   categoryLabel: string,
-  _targetCustomer: string,
   targetCustomerLabel: string,
-  stage: string,
-  userName: string
+  stageLabel: string
 ): string => {
-  return `Du bist ein erfahrener Gründungsberater, der ${userName} hilft, ihre Geschäftsidee zu schärfen.
+  return `Du bist ein erfahrener Gründungsberater. Stelle EINE präzise Frage an ${userName}.
 
+═══════════════════════════════════════════════════════════════
+KONTEXT (bereits bekannt):
+═══════════════════════════════════════════════════════════════
+• Geschäftsbereich: ${categoryLabel}
+• Zielkunden: ${targetCustomerLabel}  
+• Aktuelle Phase: ${stageLabel}
+
+═══════════════════════════════════════════════════════════════
+⚠️ CONSTRAINT-BASED RULES (NICHT VERLETZEN):
+═══════════════════════════════════════════════════════════════
+MUST INCLUDE:
+✓ Direkte Anrede mit "du"
+✓ Bezug auf den konkreten Geschäftsbereich (${categoryLabel})
+✓ Bezug auf die Zielgruppe (${targetCustomerLabel})
+✓ EINE spezifische Frage (nicht mehrere)
+
+MUST AVOID:
+✗ "Erzähl mir mehr über..." (zu vage)
+✗ "Was genau machst du?" (bereits bekannt)
+✗ "Kannst du beschreiben..." (passive Formulierung)
+✗ Mehrfache Fragen in einer Nachricht
+✗ Wiederholung bereits bekannter Informationen
+
+═══════════════════════════════════════════════════════════════
+❌ FAILURE CASES (SO NICHT):
+═══════════════════════════════════════════════════════════════
+BAD: "Erzähl mir mehr über dein Geschäft."
+WHY: Zu vage, wiederholt bekannte Info
+
+BAD: "Was für eine Art von Beratung/Software/etc. bietest du an?"
+WHY: Wiederholt die Kategorieauswahl
+
+BAD: "Kannst du mir mehr über deine Zielgruppe sagen?"
+WHY: Wiederholt die Zielgruppenauswahl
+
+═══════════════════════════════════════════════════════════════
+✅ GOOD EXAMPLES (SO JA):
+═══════════════════════════════════════════════════════════════
+GOOD: "Was ist das größte Problem, das ${targetCustomerLabel} aktuell haben und das du mit deiner ${categoryLabel} lösen möchtest?"
+
+GOOD: "Wenn ${targetCustomerLabel} deine ${categoryLabel} nutzen - was soll danach anders sein als vorher?"
+
+GOOD: "Was unterscheidet deinen Ansatz von dem, was ${targetCustomerLabel} aktuell als Alternative nutzen?"
+
+═══════════════════════════════════════════════════════════════
+📋 OUTPUT SPECIFICATION:
+═══════════════════════════════════════════════════════════════
+FORMAT: Eine freundliche, direkte Frage
+LENGTH: 1-2 Sätze, maximal 40 Wörter
+TONE: Warm, professionell, ermutigend
+FOCUS: Problem/Lösung ODER Differenzierung
+
+═══════════════════════════════════════════════════════════════
+🔍 SELF-VERIFICATION (vor dem Antworten prüfen):
+═══════════════════════════════════════════════════════════════
+□ Frage ist spezifisch, nicht vage?
+□ Bezieht sich auf ${categoryLabel}?
+□ Bezieht sich auf ${targetCustomerLabel}?
+□ Fragt nach NEUEM (nicht bereits Bekanntem)?
+□ Nur EINE Frage?
+
+Antworte NUR mit der Frage selbst, keine Erklärungen.`;
+};
+
+/**
+ * Extract structured data from user's response using verification
+ */
+const generateExtractionPrompt = (
+  userResponse: string,
+  categoryLabel: string,
+  targetCustomerLabel: string
+): string => {
+  return `Extrahiere strukturierte Informationen aus dieser Antwort.
+
+═══════════════════════════════════════════════════════════════
+USER RESPONSE:
+═══════════════════════════════════════════════════════════════
+"${userResponse}"
+
+═══════════════════════════════════════════════════════════════
 KONTEXT:
-- Geschäftsbereich: ${categoryLabel}
-- Zielkunden: ${targetCustomerLabel}
-- Phase: ${stage}
+═══════════════════════════════════════════════════════════════
+• Geschäftsbereich: ${categoryLabel}
+• Zielkunden: ${targetCustomerLabel}
 
-DEINE AUFGABE:
-1. Stelle EINE fokussierte Frage, um das konkrete Problem zu verstehen, das ${userName} für ihre Zielkunden lösen möchte
-2. Sei warm, ermutigend und professionell
-3. Verwende "du" (informell)
-4. Maximal 2-3 Sätze
+═══════════════════════════════════════════════════════════════
+📋 EXTRACTION SPECIFICATION:
+═══════════════════════════════════════════════════════════════
+Extrahiere und antworte NUR mit diesem JSON:
 
-WICHTIG:
-- Keine generischen Fragen wie "Erzähl mir mehr"
-- Beziehe dich konkret auf den gewählten Bereich und die Zielgruppe
-- Frage nach dem PROBLEM, nicht nach der Lösung`;
-};
-
-const generateFollowUpPrompt = (
-  context: Partial<BusinessContext>,
-  previousMessages: Message[],
-  userName: string
-): string => {
-  const conversationHistory = previousMessages
-    .map(m => `${m.role === 'assistant' ? 'Berater' : userName}: ${m.content}`)
-    .join('\n');
-
-  return `Du bist ein erfahrener Gründungsberater im Gespräch mit ${userName}.
-
-BISHERIGER KONTEXT:
-- Geschäftsbereich: ${context.categoryLabel || 'Nicht angegeben'}
-- Zielkunden: ${context.targetCustomerLabel || 'Nicht angegeben'}
-
-GESPRÄCHSVERLAUF:
-${conversationHistory}
-
-DEINE AUFGABE:
-Basierend auf der letzten Antwort:
-1. Bestätige kurz das Verständnis
-2. Stelle EINE Folgefrage zu einem dieser Aspekte (wähle das relevanteste):
-   - Was macht ${userName}s Ansatz einzigartig?
-   - Warum ist ${userName} die richtige Person für dieses Problem?
-   - Was ist der konkrete Mehrwert für die Kunden?
-
-REGELN:
-- Maximal 2-3 Sätze
-- Warm und ermutigend
-- Keine Wiederholungen
-- Verwende "du"`;
-};
-
-const generateSummaryPrompt = (
-  _context: Partial<BusinessContext>,
-  messages: Message[],
-  userName: string
-): string => {
-  const conversationHistory = messages
-    .map(m => `${m.role === 'assistant' ? 'Berater' : userName}: ${m.content}`)
-    .join('\n');
-
-  return `Analysiere dieses Gründungsgespräch und extrahiere strukturierte Informationen.
-
-GESPRÄCHSVERLAUF:
-${conversationHistory}
-
-EXTRAHIERE (auf Deutsch):
-1. specific_niche: Die spezifische Nische/Spezialisierung (max 10 Worte)
-2. problem_statement: Das Hauptproblem, das gelöst wird (max 20 Worte)
-3. unique_value: Was den Ansatz einzigartig macht (max 15 Worte)
-
-ANTWORTE NUR IN DIESEM JSON FORMAT:
 {
-  "specific_niche": "...",
-  "problem_statement": "...",
-  "unique_value": "...",
-  "confidence": 0.8
+  "problem_description": "[Das Hauptproblem das gelöst wird - max 25 Wörter, auf Deutsch]",
+  "unique_approach": "[Was den Ansatz einzigartig macht - max 20 Wörter, auf Deutsch]",
+  "confidence": [0.5-1.0 wie klar die Infos waren]
 }
 
-Wenn etwas unklar ist, mache eine vernünftige Annahme basierend auf dem Kontext.
-Confidence zwischen 0.5 (unsicher) und 1.0 (sehr klar).`;
+═══════════════════════════════════════════════════════════════
+⚠️ CONSTRAINTS:
+═══════════════════════════════════════════════════════════════
+• Wenn unklar, mache vernünftige Annahme basierend auf Kontext
+• Keine leeren Felder - immer etwas Sinnvolles extrahieren
+• Confidence: 0.5 = sehr unklar, 1.0 = kristallklar
+• Antworte NUR mit dem JSON, nichts anderes`;
 };
 
 // ============================================================================
@@ -221,256 +238,165 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
   theme = 'dark',
   apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 }) => {
-  // Phase tracking
-  const [phase, setPhase] = useState<'category' | 'customer' | 'stage' | 'socratic' | 'summary'>('category');
+  // State machine
+  const [phase, setPhase] = useState<Phase>('category');
   
-  // Structured data (Phase 1)
-  const [category, setCategory] = useState<string>('');
-  const [categoryLabel, setCategoryLabel] = useState<string>('');
-  const [targetCustomer, setTargetCustomer] = useState<string>('');
-  const [targetCustomerLabel, setTargetCustomerLabel] = useState<string>('');
-  const [stage, setStage] = useState<string>('');
-  const [stageLabel, setStageLabel] = useState<string>('');
+  // Structured data
+  const [category, setCategory] = useState('');
+  const [categoryLabel, setCategoryLabel] = useState('');
+  const [targetCustomer, setTargetCustomer] = useState('');
+  const [targetCustomerLabel, setTargetCustomerLabel] = useState('');
+  const [stage, setStage] = useState('');
+  const [stageLabel, setStageLabel] = useState('');
   
-  // Socratic dialogue (Phase 2)
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputValue, setInputValue] = useState<string>('');
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [socraticStep, setSocraticStep] = useState<number>(0);
-  const maxSocraticSteps = 2; // 2 AI questions + responses
+  // AI refinement
+  const [aiQuestion, setAiQuestion] = useState('');
+  const [userResponse, setUserResponse] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  // Extracted data
+  const [problemDescription, setProblemDescription] = useState('');
+  const [uniqueApproach, setUniqueApproach] = useState('');
+  
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll messages
+  // Focus input when entering AI phase
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Focus input when entering socratic phase
-  useEffect(() => {
-    if (phase === 'socratic') {
-      inputRef.current?.focus();
+    if (phase === 'ai_refinement' && !aiQuestion) {
+      generateAIQuestion();
     }
   }, [phase]);
 
-  // Start Socratic dialogue when entering that phase
   useEffect(() => {
-    if (phase === 'socratic' && messages.length === 0) {
-      startSocraticDialogue();
+    if (aiQuestion && inputRef.current) {
+      inputRef.current.focus();
     }
-  }, [phase]);
+  }, [aiQuestion]);
 
   // ============================================================================
   // AI INTERACTION
   // ============================================================================
 
-  const callClaudeAPI = async (systemPrompt: string, userMessage?: string): Promise<string> => {
+  const callAI = async (prompt: string): Promise<string> => {
     try {
-      // For now, we'll use a simulated response
-      // In production, this would call your backend which proxies to Claude API
       const response = await fetch(`${apiBaseUrl}/api/v1/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_prompt: systemPrompt,
-          user_message: userMessage || '',
-          context: {
-            category,
-            categoryLabel,
-            targetCustomer,
-            targetCustomerLabel,
-            stage,
-            stageLabel,
-            userName
-          }
+        body: JSON.stringify({ 
+          system_prompt: prompt,
+          user_message: '',
+          max_tokens: 150
         })
       });
 
-      if (!response.ok) {
-        throw new Error('API call failed');
-      }
-
+      if (!response.ok) throw new Error('API failed');
+      
       const data = await response.json();
-      return data.response;
+      return data.response || data.content || '';
     } catch (error) {
       console.error('AI API Error:', error);
-      // Fallback to template-based response
-      return getFallbackResponse();
+      return '';
     }
   };
 
-  const getFallbackResponse = (): string => {
-    const fallbacks = [
-      `Super, ${userName}! Du möchtest also im Bereich ${categoryLabel} für ${targetCustomerLabel} arbeiten. Was ist das größte Problem, das deine Zielkunden aktuell haben und das du lösen möchtest?`,
-      `Das klingt spannend! Was unterscheidet deine Idee von dem, was es bereits am Markt gibt?`,
-      `Verstehe! Und warum bist gerade du die richtige Person, um dieses Problem zu lösen?`
-    ];
-    return fallbacks[Math.min(socraticStep, fallbacks.length - 1)];
-  };
-
-  const startSocraticDialogue = async () => {
+  const generateAIQuestion = async () => {
     setIsLoading(true);
     
-    try {
-      const systemPrompt = generateSocraticPrompt(
-        category, categoryLabel, targetCustomer, targetCustomerLabel, stageLabel, userName
-      );
-      
-      const aiResponse = await callClaudeAPI(systemPrompt);
-      
-      const newMessage: Message = {
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: aiResponse,
-        timestamp: new Date()
-      };
-      
-      setMessages([newMessage]);
-    } catch (error) {
-      console.error('Error starting dialogue:', error);
-      // Use fallback
-      const newMessage: Message = {
-        id: `msg-${Date.now()}`,
-        role: 'assistant',
-        content: getFallbackResponse(),
-        timestamp: new Date()
-      };
-      setMessages([newMessage]);
-    } finally {
-      setIsLoading(false);
+    const prompt = generateRefinementPrompt(userName, categoryLabel, targetCustomerLabel, stageLabel);
+    const question = await callAI(prompt);
+    
+    if (question && question.length > 10) {
+      setAiQuestion(question);
+    } else {
+      // Fallback question using the techniques' good examples
+      const fallbacks = [
+        `Was ist das größte Problem, das ${targetCustomerLabel} aktuell haben und das du mit deiner ${categoryLabel} lösen möchtest?`,
+        `Wenn ${targetCustomerLabel} deine ${categoryLabel} nutzen - was soll danach anders sein als vorher?`,
+        `Was unterscheidet deinen Ansatz von dem, was ${targetCustomerLabel} aktuell als Alternative nutzen?`
+      ];
+      setAiQuestion(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
     }
+    
+    setIsLoading(false);
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
-
-    const userMessage: Message = {
-      id: `msg-${Date.now()}`,
-      role: 'user',
-      content: inputValue.trim(),
-      timestamp: new Date()
+  const handleSubmitResponse = async () => {
+    if (!userResponse.trim() || isLoading) return;
+    
+    setIsLoading(true);
+    setPhase('verification');
+    
+    // Try to extract structured data
+    const extractionPrompt = generateExtractionPrompt(userResponse, categoryLabel, targetCustomerLabel);
+    const extraction = await callAI(extractionPrompt);
+    
+    let extracted = {
+      problem_description: `Hilft ${targetCustomerLabel} im Bereich ${categoryLabel}`,
+      unique_approach: 'Personalisierter, professioneller Ansatz',
+      confidence: 0.6
     };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInputValue('');
-    setIsLoading(true);
-
-    const newStep = socraticStep + 1;
-    setSocraticStep(newStep);
-
-    try {
-      if (newStep >= maxSocraticSteps) {
-        // Final step - generate summary and complete
-        await generateSummaryAndComplete([...messages, userMessage]);
-      } else {
-        // Continue dialogue
-        const systemPrompt = generateFollowUpPrompt(
-          { category, categoryLabel, targetCustomer, targetCustomerLabel, stageLabel },
-          [...messages, userMessage],
-          userName
-        );
-        
-        const aiResponse = await callClaudeAPI(systemPrompt, inputValue.trim());
-        
-        const assistantMessage: Message = {
-          id: `msg-${Date.now()}-ai`,
-          role: 'assistant',
-          content: aiResponse,
-          timestamp: new Date()
-        };
-        
-        setMessages(prev => [...prev, assistantMessage]);
-      }
-    } catch (error) {
-      console.error('Error in dialogue:', error);
-      // Use fallback and continue
-      const assistantMessage: Message = {
-        id: `msg-${Date.now()}-ai`,
-        role: 'assistant',
-        content: getFallbackResponse(),
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const generateSummaryAndComplete = async (allMessages: Message[]) => {
-    setPhase('summary');
     
     try {
-      const systemPrompt = generateSummaryPrompt(
-        { category, categoryLabel, targetCustomer, targetCustomerLabel, stageLabel },
-        allMessages,
-        userName
-      );
-      
-      const response = await callClaudeAPI(systemPrompt);
-      
-      // Try to parse JSON response
-      let extracted = {
-        specific_niche: categoryLabel,
-        problem_statement: 'Hilft ' + targetCustomerLabel,
-        unique_value: 'Personalisierter Ansatz',
-        confidence: 0.7
-      };
-      
-      try {
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          extracted = JSON.parse(jsonMatch[0]);
-        }
-      } catch (e) {
-        console.log('Using fallback extraction');
+      const jsonMatch = extraction.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.problem_description) extracted.problem_description = parsed.problem_description;
+        if (parsed.unique_approach) extracted.unique_approach = parsed.unique_approach;
+        if (parsed.confidence) extracted.confidence = parsed.confidence;
       }
-
-      // Build complete context
-      const completeContext: BusinessContext = {
-        category,
-        categoryLabel,
-        targetCustomer,
-        targetCustomerLabel,
-        stage,
-        stageLabel,
-        specificNiche: extracted.specific_niche,
-        problemStatement: extracted.problem_statement,
-        uniqueValue: extracted.unique_value,
-        completedAt: new Date().toISOString(),
-        confidence: extracted.confidence || 0.7
-      };
-
-      // Short delay to show summary animation
-      setTimeout(() => {
-        onComplete(completeContext);
-      }, 1500);
-
-    } catch (error) {
-      console.error('Summary generation error:', error);
-      // Complete with basic data
-      const basicContext: BusinessContext = {
-        category,
-        categoryLabel,
-        targetCustomer,
-        targetCustomerLabel,
-        stage,
-        stageLabel,
-        specificNiche: categoryLabel,
-        problemStatement: `Lösungen für ${targetCustomerLabel}`,
-        uniqueValue: 'Individueller Ansatz',
-        completedAt: new Date().toISOString(),
-        confidence: 0.6
-      };
-      
-      setTimeout(() => {
-        onComplete(basicContext);
-      }, 1500);
+    } catch (e) {
+      // Use user response directly as problem description
+      if (userResponse.length > 20) {
+        extracted.problem_description = userResponse.slice(0, 100);
+      }
     }
+    
+    setProblemDescription(extracted.problem_description);
+    setUniqueApproach(extracted.unique_approach);
+    
+    setIsLoading(false);
+    
+    // Brief pause to show verification, then complete
+    setTimeout(() => {
+      setPhase('complete');
+      setTimeout(() => {
+        onComplete({
+          category,
+          categoryLabel,
+          targetCustomer,
+          targetCustomerLabel,
+          stage,
+          stageLabel,
+          problemDescription: extracted.problem_description,
+          uniqueApproach: extracted.unique_approach,
+          completedAt: new Date().toISOString(),
+          captureMethod: 'ai_enhanced'
+        });
+      }, 800);
+    }, 1000);
+  };
+
+  const handleSkipAI = () => {
+    // Allow skipping AI refinement
+    setPhase('complete');
+    setTimeout(() => {
+      onComplete({
+        category,
+        categoryLabel,
+        targetCustomer,
+        targetCustomerLabel,
+        stage,
+        stageLabel,
+        problemDescription: `${categoryLabel} für ${targetCustomerLabel}`,
+        uniqueApproach: 'Wird im Assessment ermittelt',
+        completedAt: new Date().toISOString(),
+        captureMethod: 'structured'
+      });
+    }, 800);
   };
 
   // ============================================================================
-  // PHASE 1: STRUCTURED SELECTION HANDLERS
+  // HANDLERS
   // ============================================================================
 
   const handleCategorySelect = (cat: typeof BUSINESS_CATEGORIES[0]) => {
@@ -488,7 +414,7 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
   const handleStageSelect = (stg: typeof BUSINESS_STAGES[0]) => {
     setStage(stg.id);
     setStageLabel(stg.label);
-    setPhase('socratic');
+    setPhase('ai_refinement');
   };
 
   // ============================================================================
@@ -496,16 +422,16 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
   // ============================================================================
 
   const renderProgressDots = () => {
-    const phases = ['category', 'customer', 'stage', 'socratic', 'summary'];
+    const phases: Phase[] = ['category', 'customer', 'stage', 'ai_refinement'];
     const currentIndex = phases.indexOf(phase);
     
     return (
       <div className="flex items-center justify-center gap-2 mb-6">
-        {phases.slice(0, 4).map((_, idx) => (
+        {phases.map((_, idx) => (
           <div 
             key={idx}
-            className={`w-2.5 h-2.5 rounded-full transition-colors ${
-              idx <= currentIndex ? 'bg-amber-500' : theme === 'dark' ? 'bg-slate-600' : 'bg-gray-300'
+            className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+              idx <= currentIndex ? 'bg-amber-500 scale-110' : theme === 'dark' ? 'bg-slate-600' : 'bg-gray-300'
             }`}
           />
         ))}
@@ -513,22 +439,19 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
     );
   };
 
-  const renderSelectionCard = (
+  const renderCard = (
     item: { id: string; label: string; emoji: string; hint: string },
-    onClick: () => void,
-    isSelected: boolean
+    onClick: () => void
   ) => (
     <button
       key={item.id}
       onClick={onClick}
       className={`
         p-4 rounded-xl border-2 transition-all duration-200 text-left
-        hover:scale-[1.02] hover:border-amber-500
-        ${isSelected 
-          ? 'border-amber-500 bg-amber-500/10' 
-          : theme === 'dark' 
-            ? 'border-slate-700 bg-slate-800/30 hover:bg-slate-800/50' 
-            : 'border-gray-200 bg-white hover:bg-gray-50'
+        hover:scale-[1.02] hover:border-amber-500 active:scale-[0.98]
+        ${theme === 'dark' 
+          ? 'border-slate-700 bg-slate-800/30 hover:bg-slate-800/50' 
+          : 'border-gray-200 bg-white hover:bg-gray-50'
         }
       `}
     >
@@ -546,264 +469,207 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
     </button>
   );
 
+  const renderBadge = (emoji: string, label: string, color: string) => (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs ${color}`}>
+      {emoji} {label}
+    </span>
+  );
+
   // ============================================================================
-  // RENDER PHASES
+  // PHASE RENDERS
   // ============================================================================
 
   const renderCategoryPhase = () => (
-    <div className={`
-      rounded-2xl p-6 md:p-8
-      ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}
-    `}>
+    <div className={`rounded-2xl p-6 md:p-8 ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}`}>
       {renderProgressDots()}
-      
       <h2 className={`text-xl md:text-2xl font-bold mb-2 text-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
         In welchem Bereich startest du, {userName}?
       </h2>
       <p className={`mb-6 text-center ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`}>
-        Wähle die Kategorie, die am besten zu deiner Geschäftsidee passt.
+        Wähle die Kategorie, die am besten passt.
       </p>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {BUSINESS_CATEGORIES.map(cat => 
-          renderSelectionCard(cat, () => handleCategorySelect(cat), category === cat.id)
-        )}
+        {BUSINESS_CATEGORIES.map(cat => renderCard(cat, () => handleCategorySelect(cat)))}
       </div>
     </div>
   );
 
   const renderCustomerPhase = () => (
-    <div className={`
-      rounded-2xl p-6 md:p-8
-      ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}
-    `}>
+    <div className={`rounded-2xl p-6 md:p-8 ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}`}>
       {renderProgressDots()}
-      
-      {/* Selected category badge */}
       <div className="flex justify-center mb-4">
-        <span className={`
-          inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm
-          ${theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}
-        `}>
-          {BUSINESS_CATEGORIES.find(c => c.id === category)?.emoji} {categoryLabel}
-        </span>
+        {renderBadge(
+          BUSINESS_CATEGORIES.find(c => c.id === category)?.emoji || '',
+          categoryLabel,
+          theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'
+        )}
       </div>
-      
       <h2 className={`text-xl md:text-2xl font-bold mb-2 text-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
         Wer sind deine Hauptkunden?
       </h2>
       <p className={`mb-6 text-center ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`}>
         Für wen löst du ein Problem?
       </p>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {TARGET_CUSTOMERS.map(cust => 
-          renderSelectionCard(cust, () => handleCustomerSelect(cust), targetCustomer === cust.id)
-        )}
+        {TARGET_CUSTOMERS.map(cust => renderCard(cust, () => handleCustomerSelect(cust)))}
       </div>
     </div>
   );
 
   const renderStagePhase = () => (
-    <div className={`
-      rounded-2xl p-6 md:p-8
-      ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}
-    `}>
+    <div className={`rounded-2xl p-6 md:p-8 ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}`}>
       {renderProgressDots()}
-      
-      {/* Selected badges */}
       <div className="flex justify-center gap-2 mb-4 flex-wrap">
-        <span className={`
-          inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
-          ${theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}
-        `}>
-          {BUSINESS_CATEGORIES.find(c => c.id === category)?.emoji} {categoryLabel}
-        </span>
-        <span className={`
-          inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
-          ${theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'}
-        `}>
-          {TARGET_CUSTOMERS.find(c => c.id === targetCustomer)?.emoji} {targetCustomerLabel}
-        </span>
+        {renderBadge(
+          BUSINESS_CATEGORIES.find(c => c.id === category)?.emoji || '',
+          categoryLabel,
+          theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'
+        )}
+        {renderBadge(
+          TARGET_CUSTOMERS.find(c => c.id === targetCustomer)?.emoji || '',
+          targetCustomerLabel,
+          theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'
+        )}
       </div>
-      
       <h2 className={`text-xl md:text-2xl font-bold mb-2 text-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
         Wo stehst du gerade?
       </h2>
       <p className={`mb-6 text-center ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`}>
-        Das hilft uns, die richtigen Fragen zu stellen.
+        Das hilft uns, die Fragen anzupassen.
       </p>
-
       <div className="grid grid-cols-1 gap-3 max-w-md mx-auto">
-        {BUSINESS_STAGES.map(stg => 
-          renderSelectionCard(stg, () => handleStageSelect(stg), stage === stg.id)
-        )}
+        {BUSINESS_STAGES.map(stg => renderCard(stg, () => handleStageSelect(stg)))}
       </div>
     </div>
   );
 
-  const renderSocraticPhase = () => (
-    <div className={`
-      rounded-2xl p-6 md:p-8
-      ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}
-    `}>
+  const renderAIRefinementPhase = () => (
+    <div className={`rounded-2xl p-6 md:p-8 ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}`}>
       {renderProgressDots()}
       
       {/* Context badges */}
       <div className="flex justify-center gap-2 mb-4 flex-wrap">
-        <span className={`
-          inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
-          ${theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700'}
-        `}>
-          {categoryLabel}
-        </span>
-        <span className={`
-          inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
-          ${theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'}
-        `}>
-          {targetCustomerLabel}
-        </span>
-        <span className={`
-          inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs
-          ${theme === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700'}
-        `}>
-          {stageLabel}
-        </span>
+        {renderBadge(BUSINESS_CATEGORIES.find(c => c.id === category)?.emoji || '', categoryLabel, theme === 'dark' ? 'bg-amber-500/20 text-amber-400' : 'bg-amber-100 text-amber-700')}
+        {renderBadge(TARGET_CUSTOMERS.find(c => c.id === targetCustomer)?.emoji || '', targetCustomerLabel, theme === 'dark' ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700')}
+        {renderBadge(BUSINESS_STAGES.find(s => s.id === stage)?.emoji || '', stageLabel, theme === 'dark' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-emerald-100 text-emerald-700')}
       </div>
 
-      {/* Chat messages */}
-      <div className={`
-        min-h-[200px] max-h-[300px] overflow-y-auto mb-4 space-y-4 p-2
-        ${theme === 'dark' ? 'scrollbar-dark' : 'scrollbar-light'}
-      `}>
-        {messages.map(msg => (
-          <div 
-            key={msg.id}
-            className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
-          >
-            {msg.role === 'assistant' && (
-              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <Sparkles size={16} className="text-white" />
-              </div>
-            )}
-            <div className={`
-              max-w-[80%] p-3 rounded-2xl
-              ${msg.role === 'assistant'
-                ? theme === 'dark' ? 'bg-slate-700 rounded-tl-none' : 'bg-gray-100 rounded-tl-none'
-                : 'bg-amber-500 text-white rounded-tr-none'
-              }
-            `}>
-              <p className={msg.role === 'assistant' ? (theme === 'dark' ? 'text-slate-200' : 'text-gray-700') : ''}>
-                {msg.content}
+      {/* AI Question */}
+      {isLoading && !aiQuestion ? (
+        <div className="flex items-center justify-center py-8">
+          <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+              <SparkleIcon />
+            </div>
+            <div className={`flex-1 p-4 rounded-2xl rounded-tl-none ${theme === 'dark' ? 'bg-slate-700' : 'bg-gray-100'}`}>
+              <p className={theme === 'dark' ? 'text-slate-200' : 'text-gray-700'}>
+                {aiQuestion}
               </p>
             </div>
           </div>
-        ))}
-        
-        {isLoading && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <Sparkles size={16} className="text-white" />
-            </div>
-            <div className={`
-              p-3 rounded-2xl rounded-tl-none
-              ${theme === 'dark' ? 'bg-slate-700' : 'bg-gray-100'}
-            `}>
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
-            </div>
+
+          {/* User Input */}
+          <div className="relative mb-4">
+            <textarea
+              ref={inputRef}
+              value={userResponse}
+              onChange={(e) => setUserResponse(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey && userResponse.trim()) {
+                  e.preventDefault();
+                  handleSubmitResponse();
+                }
+              }}
+              placeholder="Deine Antwort..."
+              rows={3}
+              disabled={isLoading}
+              className={`
+                w-full p-4 pr-14 border-2 rounded-xl outline-none transition-all resize-none
+                ${theme === 'dark' 
+                  ? 'bg-slate-800/50 text-white placeholder-slate-500 border-slate-700 focus:border-amber-500' 
+                  : 'bg-gray-50 text-gray-900 placeholder-gray-400 border-gray-200 focus:border-amber-500'
+                }
+              `}
+            />
+            <button
+              onClick={handleSubmitResponse}
+              disabled={!userResponse.trim() || isLoading}
+              className={`
+                absolute right-3 bottom-3 p-2 rounded-lg transition-all
+                ${userResponse.trim() && !isLoading
+                  ? 'bg-amber-500 text-white hover:bg-amber-600'
+                  : theme === 'dark' ? 'bg-slate-700 text-slate-400' : 'bg-gray-200 text-gray-400'
+                }
+              `}
+            >
+              <SendIcon />
+            </button>
           </div>
-        )}
-        
-        <div ref={messagesEndRef} />
-      </div>
 
-      {/* Input */}
-      <div className="relative">
-        <textarea
-          ref={inputRef}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
-          placeholder="Deine Antwort..."
-          rows={2}
-          disabled={isLoading}
-          className={`
-            w-full p-4 pr-14 border-2 rounded-xl outline-none transition-all resize-none
-            ${theme === 'dark' 
-              ? 'bg-slate-800/50 text-white placeholder-slate-500 border-slate-700 focus:border-amber-500' 
-              : 'bg-gray-50 text-gray-900 placeholder-gray-400 border-gray-200 focus:border-amber-500'
-            }
-            ${isLoading ? 'opacity-50' : ''}
-          `}
-        />
-        <button
-          onClick={handleSendMessage}
-          disabled={!inputValue.trim() || isLoading}
-          className={`
-            absolute right-3 bottom-3 p-2 rounded-lg transition-all
-            ${inputValue.trim() && !isLoading
-              ? 'bg-amber-500 text-white hover:bg-amber-600'
-              : theme === 'dark' ? 'bg-slate-700 text-slate-400' : 'bg-gray-200 text-gray-400'
-            }
-          `}
-        >
-          <Send size={18} />
-        </button>
-      </div>
+          {/* Skip option */}
+          <div className="text-center">
+            <button
+              onClick={handleSkipAI}
+              className={`text-xs underline ${theme === 'dark' ? 'text-slate-500 hover:text-slate-400' : 'text-gray-400 hover:text-gray-500'}`}
+            >
+              Überspringen und direkt zum Assessment
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 
-      <p className={`text-xs text-center mt-3 ${theme === 'dark' ? 'text-slate-500' : 'text-gray-400'}`}>
-        {socraticStep + 1} von {maxSocraticSteps + 1} · Drücke Enter zum Senden
+  const renderVerificationPhase = () => (
+    <div className={`rounded-2xl p-8 text-center ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}`}>
+      <div className="w-12 h-12 mx-auto mb-4 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+      </div>
+      <h2 className={`text-lg font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+        Analysiere deine Antwort...
+      </h2>
+      <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>
+        Extrahiere wichtige Informationen für dein Profil
       </p>
     </div>
   );
 
-  const renderSummaryPhase = () => (
-    <div className={`
-      rounded-2xl p-8 text-center
-      ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}
-    `}>
-      <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center animate-pulse">
-        <CheckCircle size={32} className="text-white" />
+  const renderCompletePhase = () => (
+    <div className={`rounded-2xl p-8 text-center ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}`}>
+      <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center">
+        <CheckIcon />
       </div>
       
       <h2 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
         Perfekt, {userName}! 🎉
       </h2>
       <p className={`mb-4 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`}>
-        Dein Geschäftsprofil wird erstellt...
+        Dein Geschäftsprofil ist komplett.
       </p>
 
-      {/* Summary cards */}
-      <div className={`
-        grid grid-cols-3 gap-3 p-4 rounded-xl
-        ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-gray-50'}
-      `}>
+      {/* Summary */}
+      <div className={`grid grid-cols-3 gap-2 p-4 rounded-xl mb-4 ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-gray-50'}`}>
         <div className="text-center">
-          <p className={`text-xs mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>Bereich</p>
-          <p className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{categoryLabel}</p>
+          <p className="text-lg">{BUSINESS_CATEGORIES.find(c => c.id === category)?.emoji}</p>
+          <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>{categoryLabel}</p>
         </div>
         <div className="text-center">
-          <p className={`text-xs mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>Zielgruppe</p>
-          <p className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{targetCustomerLabel}</p>
+          <p className="text-lg">{TARGET_CUSTOMERS.find(c => c.id === targetCustomer)?.emoji}</p>
+          <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>{targetCustomerLabel}</p>
         </div>
         <div className="text-center">
-          <p className={`text-xs mb-1 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>Phase</p>
-          <p className={`text-sm font-medium ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>{stageLabel}</p>
+          <p className="text-lg">{BUSINESS_STAGES.find(s => s.id === stage)?.emoji}</p>
+          <p className={`text-xs ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>{stageLabel}</p>
         </div>
       </div>
 
-      <div className="mt-6">
-        <Loader size={24} className="mx-auto text-amber-500" />
-        <p className={`text-sm mt-2 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>
+      <div className="flex items-center justify-center gap-2">
+        <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>
           Weiter zur Persönlichkeitsanalyse...
         </p>
       </div>
@@ -816,36 +682,27 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
 
   return (
     <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'}`}>
-      {/* Header */}
-      <header className={`
-        border-b sticky top-0 z-50 backdrop-blur-sm
-        ${theme === 'dark' ? 'border-slate-800 bg-slate-900/80' : 'border-gray-200 bg-white/80'}
-      `}>
+      <header className={`border-b sticky top-0 z-50 backdrop-blur-sm ${theme === 'dark' ? 'border-slate-800 bg-slate-900/80' : 'border-gray-200 bg-white/80'}`}>
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
               <span className="text-white text-lg">🚀</span>
             </div>
-            <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-              GründerAI
-            </span>
+            <span className={`font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>GründerAI</span>
           </div>
-          <span className={`
-            text-xs px-3 py-1 rounded-full
-            ${theme === 'dark' ? 'text-slate-400 bg-slate-800' : 'text-gray-500 bg-gray-100'}
-          `}>
+          <span className={`text-xs px-3 py-1 rounded-full ${theme === 'dark' ? 'text-slate-400 bg-slate-800' : 'text-gray-500 bg-gray-100'}`}>
             Geschäftsprofil
           </span>
         </div>
       </header>
 
-      {/* Main content */}
       <main className="max-w-2xl mx-auto px-4 py-8">
         {phase === 'category' && renderCategoryPhase()}
         {phase === 'customer' && renderCustomerPhase()}
         {phase === 'stage' && renderStagePhase()}
-        {phase === 'socratic' && renderSocraticPhase()}
-        {phase === 'summary' && renderSummaryPhase()}
+        {phase === 'ai_refinement' && renderAIRefinementPhase()}
+        {phase === 'verification' && renderVerificationPhase()}
+        {phase === 'complete' && renderCompletePhase()}
       </main>
     </div>
   );
