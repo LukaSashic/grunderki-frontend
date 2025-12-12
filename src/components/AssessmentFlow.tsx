@@ -760,8 +760,23 @@ export const AssessmentFlow: React.FC = () => {
     setState(prev => ({ ...prev, businessContext: context, isLoading: true, error: null }));
 
     try {
+      // Try to save intake (non-blocking - don't fail if this doesn't work)
+      try {
+        await api.post('/api/v1/intake', {
+          name: state.name,
+          email: state.email,
+          business_type: context.category,
+          target_customer: context.targetCustomer,
+          business_stage: context.stage,
+          problem_description: context.problemDescription,
+          unique_approach: context.uniqueApproach,
+        });
+        console.log('Intake saved successfully');
+      } catch (intakeError) {
+        console.log('Intake save skipped (endpoint not available)');
+      }
+
       // Start assessment session with business context
-      // Note: /api/v1/intake endpoint skipped - data included in assessment/start
       const sessionResponse = await api.post('/api/v1/assessment/start', {
         email: state.email,
         name: state.name,

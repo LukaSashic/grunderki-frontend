@@ -1,15 +1,11 @@
 /**
- * BusinessContextCapture.tsx - ENHANCED with Production-Grade Prompting
+ * BusinessContextCapture.tsx - Production-Ready with AI Integration
  * 
- * Uses 6 techniques from YC/OpenAI/Anthropic:
- * 1. Constraint-Based Prompting - Forces specific outputs
- * 2. Multi-Shot with Failure Cases - Shows what NOT to do
- * 3. Metacognitive Scaffolding - Plans before generating
- * 4. Differential Prompting - Personality-adaptive
- * 5. Specification-Driven Generation - Spec first
- * 6. Chain-of-Verification - Self-validates
- * 
- * Flow: Structured Questions (3) → ONE AI Refinement → Verification → Done
+ * Features:
+ * - Structured questions (Category, Customer, Stage)
+ * - AI-powered refinement question (with graceful fallback)
+ * - Production-grade prompting techniques
+ * - Works with or without backend AI endpoint
  */
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -19,19 +15,14 @@ import React, { useState, useRef, useEffect } from 'react';
 // ============================================================================
 
 export interface BusinessContext {
-  // Phase 1: Structured (Guaranteed)
   category: string;
   categoryLabel: string;
   targetCustomer: string;
   targetCustomerLabel: string;
   stage: string;
   stageLabel: string;
-  
-  // Phase 2: AI-Refined (Enhanced)
   problemDescription: string;
   uniqueApproach: string;
-  
-  // Metadata
   completedAt: string;
   captureMethod: 'structured' | 'ai_enhanced';
 }
@@ -103,6 +94,101 @@ const BUSINESS_STAGES = [
 ];
 
 // ============================================================================
+// AI SERVICE
+// ============================================================================
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+interface AIServiceResponse {
+  response: string;
+  source: 'ai' | 'fallback';
+}
+
+/**
+ * Production-grade prompt for generating refinement questions
+ * Uses constraint-based prompting and failure cases
+ */
+const buildRefinementPrompt = (
+  userName: string,
+  categoryLabel: string,
+  targetCustomerLabel: string,
+  stageLabel: string
+): string => {
+  return `Du bist ein erfahrener Gründungsberater. Stelle EINE präzise Frage an ${userName}.
+
+KONTEXT:
+• Geschäftsbereich: ${categoryLabel}
+• Zielkunden: ${targetCustomerLabel}  
+• Phase: ${stageLabel}
+
+REGELN:
+✓ Direkte Anrede mit "du"
+✓ Bezug auf ${categoryLabel} und ${targetCustomerLabel}
+✓ Nur EINE Frage
+✗ NICHT: "Erzähl mir mehr..." (zu vage)
+✗ NICHT: Bereits bekannte Infos wiederholen
+
+GUTE BEISPIELE:
+- "Was ist das größte Problem, das ${targetCustomerLabel} haben und das du lösen möchtest?"
+- "Was unterscheidet deinen Ansatz von bestehenden Alternativen?"
+
+Antworte NUR mit der Frage (1-2 Sätze, max 40 Wörter).`;
+};
+
+/**
+ * Call AI endpoint with fallback
+ */
+async function callAIService(
+  systemPrompt: string,
+  context: Record<string, string>
+): Promise<AIServiceResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/v1/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_prompt: systemPrompt,
+        user_message: '',
+        max_tokens: 150,
+        context: context
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.response && data.response.length > 10) {
+      return { response: data.response, source: 'ai' };
+    }
+    throw new Error('Empty response');
+    
+  } catch (error) {
+    console.log('AI service unavailable, using fallback:', error);
+    return generateFallbackQuestion(context);
+  }
+}
+
+/**
+ * High-quality fallback questions when AI is unavailable
+ */
+function generateFallbackQuestion(context: Record<string, string>): AIServiceResponse {
+  const { categoryLabel, targetCustomerLabel } = context;
+  
+  const questions = [
+    `Was ist das größte Problem, das ${targetCustomerLabel} aktuell haben und das du mit ${categoryLabel} lösen möchtest?`,
+    `Wenn ${targetCustomerLabel} deine ${categoryLabel} nutzen - was soll danach anders sein als vorher?`,
+    `Was unterscheidet deinen Ansatz von dem, was ${targetCustomerLabel} aktuell als Alternative nutzen?`,
+    `Warum bist gerade du die richtige Person, um dieses Problem für ${targetCustomerLabel} zu lösen?`,
+  ];
+  
+  const randomIndex = Math.floor(Math.random() * questions.length);
+  return { response: questions[randomIndex], source: 'fallback' };
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -124,6 +210,7 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
   
   // AI refinement
   const [aiQuestion, setAiQuestion] = useState('');
+  const [aiSource, setAiSource] = useState<'ai' | 'fallback'>('fallback');
   const [userResponse, setUserResponse] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -132,7 +219,7 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
   // Focus input when entering AI phase
   useEffect(() => {
     if (phase === 'ai_refinement' && !aiQuestion) {
-      generateAIQuestion();
+      generateQuestion();
     }
   }, [phase]);
 
@@ -143,26 +230,30 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
   }, [aiQuestion]);
 
   // ============================================================================
-  // AI INTERACTION - Use fallback questions (no backend AI endpoint needed)
+  // AI QUESTION GENERATION
   // ============================================================================
 
-  const generateAIQuestion = async () => {
+  const generateQuestion = async () => {
     setIsLoading(true);
     
-    // Use high-quality fallback questions directly (no API call needed)
-    // These are based on production-grade prompting techniques
-    const fallbacks = [
-      `Was ist das größte Problem, das ${targetCustomerLabel} aktuell haben und das du mit deiner ${categoryLabel} lösen möchtest?`,
-      `Wenn ${targetCustomerLabel} deine ${categoryLabel} nutzen - was soll danach anders sein als vorher?`,
-      `Was unterscheidet deinen Ansatz von dem, was ${targetCustomerLabel} aktuell als Alternative nutzen?`
-    ];
+    const context = {
+      userName,
+      categoryLabel,
+      targetCustomerLabel,
+      stageLabel,
+    };
     
-    // Small delay to feel natural
-    await new Promise(resolve => setTimeout(resolve, 500));
+    const prompt = buildRefinementPrompt(userName, categoryLabel, targetCustomerLabel, stageLabel);
+    const result = await callAIService(prompt, context);
     
-    setAiQuestion(fallbacks[Math.floor(Math.random() * fallbacks.length)]);
+    setAiQuestion(result.response);
+    setAiSource(result.source);
     setIsLoading(false);
   };
+
+  // ============================================================================
+  // RESPONSE HANDLING
+  // ============================================================================
 
   const handleSubmitResponse = async () => {
     if (!userResponse.trim() || isLoading) return;
@@ -170,23 +261,21 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
     setIsLoading(true);
     setPhase('verification');
     
-    // Extract data from user response (no API needed)
-    // Simple extraction based on response length and content
-    const extracted = {
-      problem_description: userResponse.length > 20 
-        ? userResponse.slice(0, 150) 
-        : `${categoryLabel} für ${targetCustomerLabel}`,
-      unique_approach: userResponse.length > 50 
-        ? 'Individueller Ansatz basierend auf Nutzerbeschreibung'
-        : 'Personalisierter, professioneller Ansatz',
-    };
+    // Extract meaningful data from response
+    const problemDescription = userResponse.length > 20 
+      ? userResponse.slice(0, 200) 
+      : `${categoryLabel} für ${targetCustomerLabel}`;
+    
+    const uniqueApproach = userResponse.length > 50 
+      ? 'Individueller Ansatz basierend auf Nutzerbeschreibung'
+      : 'Personalisierter Ansatz';
     
     // Brief pause for UX
     await new Promise(resolve => setTimeout(resolve, 800));
     
     setIsLoading(false);
     
-    // Brief pause to show verification, then complete
+    // Complete
     setTimeout(() => {
       setPhase('complete');
       setTimeout(() => {
@@ -197,17 +286,16 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
           targetCustomerLabel,
           stage,
           stageLabel,
-          problemDescription: extracted.problem_description,
-          uniqueApproach: extracted.unique_approach,
+          problemDescription,
+          uniqueApproach,
           completedAt: new Date().toISOString(),
-          captureMethod: 'ai_enhanced'
+          captureMethod: aiSource === 'ai' ? 'ai_enhanced' : 'structured'
         });
       }, 800);
     }, 500);
   };
 
   const handleSkipAI = () => {
-    // Allow skipping AI refinement
     setPhase('complete');
     setTimeout(() => {
       onComplete({
@@ -226,7 +314,7 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
   };
 
   // ============================================================================
-  // HANDLERS
+  // STRUCTURED QUESTION HANDLERS
   // ============================================================================
 
   const handleCategorySelect = (cat: typeof BUSINESS_CATEGORIES[0]) => {
@@ -392,13 +480,22 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
       ) : (
         <>
           <div className="flex gap-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+              aiSource === 'ai' 
+                ? 'bg-gradient-to-br from-purple-500 to-pink-500' 
+                : 'bg-gradient-to-br from-amber-500 to-orange-500'
+            }`}>
               <SparkleIcon />
             </div>
             <div className={`flex-1 p-4 rounded-2xl rounded-tl-none ${theme === 'dark' ? 'bg-slate-700' : 'bg-gray-100'}`}>
               <p className={theme === 'dark' ? 'text-slate-200' : 'text-gray-700'}>
                 {aiQuestion}
               </p>
+              {aiSource === 'ai' && (
+                <p className={`text-xs mt-2 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`}>
+                  ✨ AI-generiert
+                </p>
+              )}
             </div>
           </div>
 
@@ -463,7 +560,7 @@ export const BusinessContextCapture: React.FC<BusinessContextCaptureProps> = ({
         Analysiere deine Antwort...
       </h2>
       <p className={`text-sm ${theme === 'dark' ? 'text-slate-400' : 'text-gray-500'}`}>
-        Extrahiere wichtige Informationen für dein Profil
+        Erstelle dein Geschäftsprofil
       </p>
     </div>
   );
