@@ -1124,8 +1124,8 @@ export const GruenderAIAssessment: React.FC = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null);
   const [progress, setProgress] = useState<Progress>({
-    current_item: 0,
-    estimated_total: 10,
+    current_item: 1,  // 1-indexed: "Frage 1 von 12" when showing first question
+    estimated_total: 12,
     percentage: 0,
     dimensions_assessed: 0,
     total_dimensions: 7,
@@ -1152,13 +1152,16 @@ export const GruenderAIAssessment: React.FC = () => {
     
     try {
       // Map frontend context to backend format with correct business type
+      // Include more context for better AI personalization
       const backendContext = {
         business_type: backendBusinessType,
-        target_customer: context.targetCustomer,
-        stage: context.stage,
+        target_customer: context.targetCustomerLabel || context.targetCustomer,
+        stage: context.stageLabel || context.stage,
+        description: `${context.categoryLabel} für ${context.targetCustomerLabel || 'Kunden'}`,
       };
       
-      const response = await apiCall('/api/v1/assessment/start', 'POST', {
+      // Use AI-powered assessment endpoint for truly personalized scenarios
+      const response = await apiCall('/api/v1/ai-assessment/start', 'POST', {
         user_id: userEmail || undefined,
         business_context: backendContext,
       });
@@ -1211,10 +1214,9 @@ export const GruenderAIAssessment: React.FC = () => {
     const customerLabel = businessContext?.targetCustomerLabel || 'Kunden';
     
     try {
-      const response = await apiCall(`/api/v1/assessment/${sessionId}/respond`, 'POST', {
-        scenario_id: currentScenario.scenario_id,
-        selected_option: optionId,
-        response_time_ms: 5000, // Could track actual time
+      // Use AI-powered assessment endpoint
+      const response = await apiCall(`/api/v1/ai-assessment/${sessionId}/respond`, 'POST', {
+        option_id: optionId,
       });
       
       // Show micro-insight every 3rd question
