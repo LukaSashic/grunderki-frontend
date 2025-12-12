@@ -2,12 +2,13 @@
  * GründerAI Assessment Flow - Complete Dark Theme Version
  * With Light/Dark mode toggle
  * 
- * Flow: Welcome → Name → Email → Business Type → Socratic → Assessment → Results
+ * Flow: Welcome → Name → Email → Business Context → Assessment → Results
  */
 
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import axios from 'axios';
 import { ResultsPage } from './ResultsPage';
+import { BusinessContextCapture, BusinessContext as ImportedBusinessContext } from './BusinessContextCapture';
 
 // ============================================================================
 // THEME CONTEXT
@@ -26,6 +27,21 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export const useTheme = () => useContext(ThemeContext);
+
+// Wrapper component to pass theme from context
+const BusinessContextCaptureComponent: React.FC<{
+  userName: string;
+  onComplete: (context: ImportedBusinessContext) => void;
+  theme: Theme;
+}> = ({ userName, onComplete, theme }) => {
+  return (
+    <BusinessContextCapture 
+      userName={userName} 
+      onComplete={onComplete} 
+      theme={theme}
+    />
+  );
+};
 
 // ============================================================================
 // API CONFIGURATION
@@ -72,11 +88,10 @@ interface Progress {
 }
 
 interface AssessmentState {
-  stage: 'welcome' | 'name' | 'email' | 'business_type' | 'socratic' | 'assessment' | 'results';
+  stage: 'welcome' | 'name' | 'email' | 'business_context' | 'assessment' | 'results';
   name: string;
   email: string;
-  businessIdea: string;
-  businessType: string;
+  businessContext: BusinessContext | null;
   sessionId: string | null;
   currentQuestion: Question | null;
   progress: Progress;
@@ -481,178 +496,22 @@ const EmailInput: React.FC<EmailInputProps> = ({ userName, onSubmit }) => {
 };
 
 // ============================================================================
-// BUSINESS TYPE SELECTOR
+// BUSINESS CONTEXT TYPE (for hybrid capture)
 // ============================================================================
 
-const BUSINESS_TYPES = [
-  { id: 'consulting', label: 'Beratung / Coaching', emoji: '💼', color: '#3b82f6' },
-  { id: 'ecommerce', label: 'E-Commerce', emoji: '🛒', color: '#10b981' },
-  { id: 'service', label: 'Dienstleistung', emoji: '🛠️', color: '#f59e0b' },
-  { id: 'tech', label: 'Tech / Software', emoji: '💻', color: '#8b5cf6' },
-  { id: 'gastro', label: 'Gastronomie', emoji: '🍽️', color: '#ec4899' },
-  { id: 'creative', label: 'Kreativ / Design', emoji: '🎨', color: '#06b6d4' },
-  { id: 'health', label: 'Gesundheit', emoji: '💪', color: '#84cc16' },
-  { id: 'other', label: 'Sonstiges', emoji: '✨', color: '#64748b' },
-];
-
-interface BusinessTypeSelectorProps {
-  userName: string;
-  onSelect: (type: string) => void;
+interface BusinessContext {
+  category: string;
+  categoryLabel: string;
+  targetCustomer: string;
+  targetCustomerLabel: string;
+  stage: string;
+  stageLabel: string;
+  specificNiche: string;
+  problemStatement: string;
+  uniqueValue: string;
+  completedAt: string;
+  confidence: number;
 }
-
-const BusinessTypeSelector: React.FC<BusinessTypeSelectorProps> = ({ userName, onSelect }) => {
-  const { theme } = useTheme();
-  const [hoveredType, setHoveredType] = useState<string | null>(null);
-
-  return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'}`}>
-      <Header />
-      <div className="flex items-center justify-center p-4 min-h-[calc(100vh-60px)]">
-        <div className="max-w-2xl w-full">
-          <div className={`
-            rounded-2xl p-8
-            ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}
-          `}>
-            {/* Progress Dots */}
-            <div className="flex items-center justify-center gap-2 mb-6">
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              <div className={`w-2.5 h-2.5 rounded-full ${theme === 'dark' ? 'bg-slate-600' : 'bg-gray-300'}`} />
-            </div>
-
-            <h2 className={`text-xl md:text-2xl font-bold mb-2 text-center ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
-              Super, {userName}! Was für ein Geschäft planst du?
-            </h2>
-            <p className={`mb-6 text-center ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`}>
-              Das hilft uns, die Fragen auf dein Vorhaben anzupassen.
-            </p>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {BUSINESS_TYPES.map((type) => {
-                const isHovered = hoveredType === type.id;
-                return (
-                  <button
-                    key={type.id}
-                    onClick={() => onSelect(type.id)}
-                    onMouseEnter={() => setHoveredType(type.id)}
-                    onMouseLeave={() => setHoveredType(null)}
-                    className={`p-4 rounded-xl border-2 transition-all duration-200 text-center ${isHovered ? 'scale-105' : ''}`}
-                    style={{
-                      borderColor: isHovered ? type.color : theme === 'dark' ? 'rgb(51 65 85 / 0.5)' : 'rgb(229 231 235)',
-                      backgroundColor: isHovered ? `${type.color}15` : theme === 'dark' ? 'rgb(30 41 59 / 0.3)' : 'white'
-                    }}
-                  >
-                    <span className="text-3xl mb-2 block">{type.emoji}</span>
-                    <span className={`text-sm ${isHovered ? (theme === 'dark' ? 'text-white' : 'text-gray-900') : (theme === 'dark' ? 'text-slate-300' : 'text-gray-600')}`}>
-                      {type.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================================================
-// SOCRATIC DIALOGUE
-// ============================================================================
-
-interface SocraticDialogueProps {
-  userName: string;
-  businessType: string;
-  onComplete: (idea: string) => void;
-}
-
-const SocraticDialogue: React.FC<SocraticDialogueProps> = ({ userName, businessType, onComplete }) => {
-  const { theme } = useTheme();
-  const [idea, setIdea] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
-
-  const businessTypeLabel = BUSINESS_TYPES.find(t => t.id === businessType)?.label || businessType;
-
-  const handleSubmit = () => {
-    if (idea.trim().length >= 10) onComplete(idea.trim());
-  };
-
-  return (
-    <div className={`min-h-screen ${theme === 'dark' ? 'bg-slate-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'}`}>
-      <Header stage="Geschäftsidee" />
-      <div className="flex items-center justify-center p-4 min-h-[calc(100vh-60px)]">
-        <div className="max-w-lg w-full">
-          <div className={`
-            rounded-2xl p-8
-            ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}
-          `}>
-            {/* Progress */}
-            <div className="flex items-center justify-center gap-2 mb-6">
-              {[1,2,3,4].map(i => (
-                <div key={i} className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-              ))}
-            </div>
-
-            {/* AI Message */}
-            <div className="flex gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-                <MessageCircle size={20} className="text-white" />
-              </div>
-              <div className={`
-                flex-1 p-4 rounded-2xl rounded-tl-none
-                ${theme === 'dark' ? 'bg-slate-800' : 'bg-gray-100'}
-              `}>
-                <p className={theme === 'dark' ? 'text-slate-200' : 'text-gray-700'}>
-                  {userName}, du hast <strong>{businessTypeLabel}</strong> gewählt. 
-                  Erzähl mir mehr – was genau möchtest du anbieten und für wen?
-                </p>
-              </div>
-            </div>
-
-            {/* Input */}
-            <div className="relative mb-4">
-              <textarea
-                value={idea}
-                onChange={(e) => setIdea(e.target.value)}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setIsFocused(false)}
-                placeholder="z.B. Ich möchte eine Marketingagentur gründen, die kleinen Handwerksbetrieben hilft, online Kunden zu gewinnen..."
-                rows={4}
-                className={`
-                  w-full p-4 border-2 rounded-xl outline-none transition-all resize-none
-                  ${theme === 'dark' 
-                    ? 'bg-slate-800/50 text-white placeholder-slate-500' 
-                    : 'bg-gray-50 text-gray-900 placeholder-gray-400'
-                  }
-                  ${isFocused ? 'border-amber-500' : theme === 'dark' ? 'border-slate-700' : 'border-gray-200'}
-                `}
-              />
-              <div className={`absolute bottom-3 right-3 text-xs ${theme === 'dark' ? 'text-slate-500' : 'text-gray-400'}`}>
-                {idea.length} Zeichen
-              </div>
-            </div>
-
-            <button
-              onClick={handleSubmit}
-              disabled={idea.trim().length < 10}
-              className={`
-                w-full py-4 px-6 rounded-xl font-bold transition-all flex items-center justify-center gap-2
-                ${idea.trim().length >= 10
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:scale-105'
-                  : theme === 'dark' ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                }
-              `}
-            >
-              <Send size={20} /> Weiter zur Analyse
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // ============================================================================
 // ASSESSMENT QUESTION COMPONENT
@@ -885,8 +744,7 @@ export const AssessmentFlow: React.FC = () => {
     stage: 'welcome',
     name: '',
     email: '',
-    businessIdea: '',
-    businessType: '',
+    businessContext: null,
     sessionId: null,
     currentQuestion: null,
     progress: { items_completed: 0, estimated_remaining: 15, percentage: 0 },
@@ -898,23 +756,35 @@ export const AssessmentFlow: React.FC = () => {
     error: null,
   });
 
-  // Start Assessment
-  const startAssessment = async (businessIdea: string) => {
-    setState(prev => ({ ...prev, businessIdea, isLoading: true, error: null }));
+  // Start Assessment with Business Context
+  const startAssessment = async (context: BusinessContext) => {
+    setState(prev => ({ ...prev, businessContext: context, isLoading: true, error: null }));
 
     try {
-      // Save intake
+      // Save intake with full business context
       await api.post('/api/v1/intake', {
         name: state.name,
         email: state.email,
-        business_idea: businessIdea,
-        business_type: state.businessType,
+        business_type: context.category,
+        business_idea: context.problemStatement,
+        target_customer: context.targetCustomer,
+        business_stage: context.stage,
+        specific_niche: context.specificNiche,
+        unique_value: context.uniqueValue,
       });
 
-      // Start assessment session
+      // Start assessment session with business context
       const sessionResponse = await api.post('/api/v1/assessment/start', {
         email: state.email,
-        business_type: state.businessType,
+        business_type: context.category,
+        business_context: {
+          category: context.category,
+          target_customer: context.targetCustomer,
+          stage: context.stage,
+          specific_niche: context.specificNiche,
+          problem_statement: context.problemStatement,
+          unique_value: context.uniqueValue,
+        }
       });
 
       const { session_id } = sessionResponse.data;
@@ -1000,24 +870,18 @@ export const AssessmentFlow: React.FC = () => {
       {state.stage === 'email' && (
         <EmailInput 
           userName={state.name} 
-          onSubmit={(email) => setState(prev => ({ ...prev, email, stage: 'business_type' }))} 
+          onSubmit={(email) => setState(prev => ({ ...prev, email, stage: 'business_context' }))} 
         />
       )}
 
-      {/* Business Type */}
-      {state.stage === 'business_type' && (
-        <BusinessTypeSelector 
+      {/* Business Context Capture (Hybrid: Structured + AI Socratic) */}
+      {state.stage === 'business_context' && !state.isLoading && (
+        <BusinessContextCaptureComponent
           userName={state.name}
-          onSelect={(type) => setState(prev => ({ ...prev, businessType: type, stage: 'socratic' }))}
-        />
-      )}
-
-      {/* Socratic Dialogue */}
-      {state.stage === 'socratic' && !state.isLoading && (
-        <SocraticDialogue
-          userName={state.name}
-          businessType={state.businessType}
-          onComplete={startAssessment}
+          onComplete={(context) => {
+            startAssessment(context);
+          }}
+          theme={theme}
         />
       )}
 
