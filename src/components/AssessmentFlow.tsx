@@ -875,8 +875,8 @@ export const AssessmentFlow: React.FC = () => {
         />
       )}
 
-      {/* Business Context Capture (Hybrid: Structured + AI Socratic) */}
-      {state.stage === 'business_context' && !state.isLoading && (
+      {/* Business Context Capture (Structured + AI) */}
+      {state.stage === 'business_context' && !state.isLoading && !state.businessContext && (
         <BusinessContextCaptureComponent
           userName={state.name}
           onComplete={(context) => {
@@ -884,6 +884,29 @@ export const AssessmentFlow: React.FC = () => {
           }}
           theme={theme}
         />
+      )}
+
+      {/* Error after business context - show retry option */}
+      {state.stage === 'business_context' && !state.isLoading && state.businessContext && state.error && (
+        <div className={`min-h-screen flex items-center justify-center p-4 ${theme === 'dark' ? 'bg-slate-900' : 'bg-gradient-to-br from-blue-50 to-indigo-100'}`}>
+          <div className={`max-w-md w-full rounded-2xl p-8 text-center ${theme === 'dark' ? 'bg-slate-800/40 border border-slate-700/50' : 'bg-white shadow-xl'}`}>
+            <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
+              <span className="text-3xl">⚠️</span>
+            </div>
+            <h2 className={`text-xl font-bold mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+              Verbindungsfehler
+            </h2>
+            <p className={`mb-6 ${theme === 'dark' ? 'text-slate-400' : 'text-gray-600'}`}>
+              {state.error}
+            </p>
+            <button
+              onClick={() => state.businessContext && startAssessment(state.businessContext)}
+              className="w-full py-3 px-6 bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold rounded-xl hover:scale-105 transition-transform"
+            >
+              Erneut versuchen
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Loading */}
