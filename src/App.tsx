@@ -1,10 +1,10 @@
 // src/App.tsx
-// Main application component - Clean version with integrated header/footer
+// Main application component - GründerAI Assessment v2.0
 
-import AssessmentFlow from './components/AssessmentFlow';
+import { GruenderAIAssessment } from './components/GruenderAIAssessment';
 
 function App() {
-  return <AssessmentFlow />;
+  return <GruenderAIAssessment />;
 }
 
 export default App;
