@@ -164,7 +164,7 @@ const BUSINESS_CATEGORIES: CategoryOption[] = [
 
 const SMART_DEFAULTS: Record<string, SmartDefault> = {
   consulting: {
-    customer: 'b2b_small',
+    customer: 'smb',
     customerLabel: 'Kleine & mittlere Unternehmen',
     stage: 'idea',
     stageLabel: 'Ideenphase',
@@ -172,15 +172,15 @@ const SMART_DEFAULTS: Record<string, SmartDefault> = {
     insight: '75% der Berater starten mit B2B-Kunden'
   },
   tech: {
-    customer: 'b2b_mixed',
-    customerLabel: 'Unternehmen verschiedener Größen',
+    customer: 'startups',
+    customerLabel: 'Startups',
     stage: 'idea',
     stageLabel: 'Ideenphase',
     confidence: 0.70,
     insight: 'Tech-Gründer haben oft schon erste Prototypen'
   },
   ecommerce: {
-    customer: 'b2c_mixed',
+    customer: 'consumers',
     customerLabel: 'Endverbraucher (B2C)',
     stage: 'planning',
     stageLabel: 'In der Planung',
@@ -188,40 +188,40 @@ const SMART_DEFAULTS: Record<string, SmartDefault> = {
     insight: 'E-Commerce startet meist mit klarer Nische'
   },
   service: {
-    customer: 'b2c_mixed',
-    customerLabel: 'Privatpersonen & Haushalte',
+    customer: 'homeowners',
+    customerLabel: 'Hausbesitzer / Mieter',
     stage: 'idea',
     stageLabel: 'Ideenphase',
     confidence: 0.70,
     insight: 'Lokale Dienstleister haben oft schon Netzwerke'
   },
   creative: {
-    customer: 'b2b_small',
-    customerLabel: 'Kleine Unternehmen & Startups',
+    customer: 'businesses',
+    customerLabel: 'Unternehmen / Marken',
     stage: 'idea',
     stageLabel: 'Ideenphase',
     confidence: 0.72,
     insight: 'Kreative bringen meist Portfolio-Erfahrung mit'
   },
   health: {
-    customer: 'b2c_professionals',
-    customerLabel: 'Berufstätige & Gesundheitsbewusste',
+    customer: 'busy_professionals',
+    customerLabel: 'Berufstätige mit wenig Zeit',
     stage: 'planning',
     stageLabel: 'In der Planung',
     confidence: 0.68,
     insight: 'Gesundheitsbranche erfordert oft Zertifikate'
   },
   gastro: {
-    customer: 'b2c_families',
-    customerLabel: 'Familien & lokale Gemeinschaft',
+    customer: 'families',
+    customerLabel: 'Familien mit Kindern',
     stage: 'planning',
     stageLabel: 'In der Planung',
     confidence: 0.80,
     insight: 'Gastro braucht Standort & Konzept zuerst'
   },
   education: {
-    customer: 'b2c_mixed',
-    customerLabel: 'Lernwillige aller Altersgruppen',
+    customer: 'students',
+    customerLabel: 'Schüler / Studenten',
     stage: 'idea',
     stageLabel: 'Ideenphase',
     confidence: 0.65,
@@ -229,6 +229,77 @@ const SMART_DEFAULTS: Record<string, SmartDefault> = {
   },
 };
 
+// Dynamic customer options based on business type
+const CUSTOMER_OPTIONS_BY_TYPE: Record<string, Array<{ id: string; label: string; emoji: string }>> = {
+  gastro: [
+    { id: 'families', label: 'Familien mit Kindern', emoji: '👨‍👩‍👧‍👦' },
+    { id: 'young_couples', label: 'Junge Paare / Dating', emoji: '💑' },
+    { id: 'business_lunch', label: 'Business Lunch Crowd', emoji: '👔' },
+    { id: 'seniors', label: 'Senioren', emoji: '👴' },
+    { id: 'tourists', label: 'Touristen', emoji: '🧳' },
+    { id: 'mixed', label: 'Gemischt', emoji: '🌈' },
+  ],
+  consulting: [
+    { id: 'smb', label: 'Kleine & mittlere Unternehmen', emoji: '🏢' },
+    { id: 'enterprise', label: 'Großunternehmen', emoji: '🏛️' },
+    { id: 'startups', label: 'Startups / Gründer', emoji: '🚀' },
+    { id: 'executives', label: 'Führungskräfte', emoji: '👔' },
+    { id: 'professionals', label: 'Fachexperten', emoji: '💼' },
+    { id: 'mixed', label: 'Verschiedene', emoji: '🌈' },
+  ],
+  tech: [
+    { id: 'smb', label: 'Kleine/Mittelständische Unternehmen', emoji: '🏢' },
+    { id: 'enterprise', label: 'Großunternehmen', emoji: '🏛️' },
+    { id: 'startups', label: 'Startups', emoji: '🚀' },
+    { id: 'solopreneurs', label: 'Freelancer / Solopreneure', emoji: '👨‍💻' },
+    { id: 'developers', label: 'Entwickler / Tech-Teams', emoji: '💻' },
+    { id: 'mixed', label: 'Verschiedene Unternehmensgrößen', emoji: '🌈' },
+  ],
+  ecommerce: [
+    { id: 'consumers', label: 'Endverbraucher (B2C)', emoji: '🛍️' },
+    { id: 'business', label: 'Unternehmen (B2B)', emoji: '🏢' },
+    { id: 'niche', label: 'Nischen-Zielgruppe', emoji: '🎯' },
+    { id: 'young_adults', label: 'Junge Erwachsene (18-35)', emoji: '👩‍💻' },
+    { id: 'mixed', label: 'Gemischt', emoji: '🌈' },
+  ],
+  service: [
+    { id: 'homeowners', label: 'Hausbesitzer / Mieter', emoji: '🏠' },
+    { id: 'businesses', label: 'Gewerbekunden', emoji: '🏢' },
+    { id: 'property_managers', label: 'Hausverwaltungen', emoji: '🏗️' },
+    { id: 'individuals', label: 'Privatpersonen', emoji: '👤' },
+    { id: 'mixed', label: 'Gemischt', emoji: '🌈' },
+  ],
+  creative: [
+    { id: 'businesses', label: 'Unternehmen / Marken', emoji: '🏢' },
+    { id: 'agencies', label: 'Agenturen', emoji: '📊' },
+    { id: 'startups', label: 'Startups', emoji: '🚀' },
+    { id: 'individuals', label: 'Privatpersonen', emoji: '👤' },
+    { id: 'influencers', label: 'Influencer / Creators', emoji: '📱' },
+    { id: 'mixed', label: 'Gemischt', emoji: '🌈' },
+  ],
+  health: [
+    { id: 'fitness_enthusiasts', label: 'Fitness-Begeisterte', emoji: '💪' },
+    { id: 'busy_professionals', label: 'Berufstätige mit wenig Zeit', emoji: '👔' },
+    { id: 'seniors', label: 'Senioren', emoji: '👴' },
+    { id: 'rehab_patients', label: 'Reha-Patienten', emoji: '🏥' },
+    { id: 'health_conscious', label: 'Gesundheitsbewusste', emoji: '🥗' },
+    { id: 'mixed', label: 'Gemischt', emoji: '🌈' },
+  ],
+  education: [
+    { id: 'students', label: 'Schüler / Studenten', emoji: '🎓' },
+    { id: 'professionals', label: 'Berufstätige (Weiterbildung)', emoji: '👔' },
+    { id: 'companies', label: 'Unternehmen (B2B Training)', emoji: '🏢' },
+    { id: 'parents', label: 'Eltern (für Kinder)', emoji: '👨‍👩‍👧' },
+    { id: 'mixed', label: 'Verschiedene Altersgruppen', emoji: '🌈' },
+  ],
+};
+
+// Helper function to get customer options for a category
+const getCustomerOptionsForCategory = (categoryId: string) => {
+  return CUSTOMER_OPTIONS_BY_TYPE[categoryId] || CUSTOMER_OPTIONS_BY_TYPE['service'];
+};
+
+// Legacy fallback (no longer used but kept for compatibility)
 const CUSTOMER_OPTIONS = [
   { id: 'b2b_small', label: 'Kleine Unternehmen (KMU)', emoji: '🏢' },
   { id: 'b2b_large', label: 'Größere Unternehmen', emoji: '🏛️' },
@@ -761,12 +832,19 @@ const CustomizeBusinessScreen: React.FC<{
   onComplete: (customer: string, customerLabel: string, stage: string, stageLabel: string) => void;
   onBack: () => void;
 }> = ({ theme, category, defaults, onComplete, onBack }) => {
-  const [selectedCustomer, setSelectedCustomer] = useState(defaults.customer);
+  // Get dynamic options based on selected category
+  const customerOptions = getCustomerOptionsForCategory(category.id);
+  
+  // Initialize with first option from dynamic list or default
+  const [selectedCustomer, setSelectedCustomer] = useState(() => {
+    const defaultOption = customerOptions.find(c => c.id === defaults.customer);
+    return defaultOption ? defaults.customer : customerOptions[0]?.id || defaults.customer;
+  });
   const [selectedStage, setSelectedStage] = useState(defaults.stage);
   const styles = getThemeStyles(theme);
   
   const handleSubmit = () => {
-    const customer = CUSTOMER_OPTIONS.find(c => c.id === selectedCustomer);
+    const customer = customerOptions.find(c => c.id === selectedCustomer);
     const stage = STAGE_OPTIONS.find(s => s.id === selectedStage);
     if (customer && stage) {
       onComplete(customer.id, customer.label, stage.id, stage.label);
@@ -785,13 +863,13 @@ const CustomizeBusinessScreen: React.FC<{
       </div>
       
       <div className="space-y-6">
-        {/* Customer Selection */}
+        {/* Customer Selection - NOW DYNAMIC! */}
         <div>
           <label className={`block mb-3 font-medium ${styles.text.primary}`}>
             Deine Zielgruppe:
           </label>
           <div className="space-y-2">
-            {CUSTOMER_OPTIONS.map((option) => (
+            {customerOptions.map((option) => (
               <button
                 key={option.id}
                 onClick={() => setSelectedCustomer(option.id)}
