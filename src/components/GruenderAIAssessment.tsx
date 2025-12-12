@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { ResultsPage } from './ResultsPage';
 
 // ============================================================================
 // CONFIGURATION
@@ -93,7 +94,31 @@ interface MicroInsight {
 }
 
 interface AssessmentResults {
-  personality_profile: {
+  // Backend structure (actual API response)
+  dimensions?: Record<string, {
+    theta: number;
+    percentile: number;
+    score: number;
+    level: string;
+    level_de: string;
+    interpretation_de: string;
+    tip?: string;
+    se?: number;
+    n_items?: number;
+  }>;
+  summary?: {
+    average_theta: number;
+    average_percentile: number;
+    average_score: number;
+  };
+  gz_readiness?: {
+    approval_probability: number;
+    confidence: string;
+    strengths: string[];
+    development_areas: string[];
+  };
+  // Legacy/extended structure (for mock data compatibility)
+  personality_profile?: {
     archetype_id: string;
     archetype_name: string;
     tagline: string;
@@ -102,26 +127,6 @@ interface AssessmentResults {
     primary_challenges: string[];
     gz_success_prediction: number;
   };
-  dimension_scores: Record<string, {
-    theta: number;
-    percentile: number;
-    label: string;
-  }>;
-  gap_analysis: {
-    priority_gaps: Array<{
-      dimension: string;
-      current_percentile: number;
-      target_percentile: number;
-      urgency: string;
-    }>;
-    overall_readiness: number;
-  };
-  radar_chart_data: Array<{
-    dimension: string;
-    label: string;
-    score: number;
-    benchmark: number;
-  }>;
 }
 
 // ============================================================================
@@ -133,6 +138,7 @@ interface CategoryOption {
   label: string;
   emoji: string;
   hint: string;
+  backendType: string; // Maps to backend personalization_keys
 }
 
 interface SmartDefault {
@@ -144,15 +150,16 @@ interface SmartDefault {
   insight: string;
 }
 
+// Frontend categories mapped to backend business types
 const BUSINESS_CATEGORIES: CategoryOption[] = [
-  { id: 'consulting', label: 'Beratung / Coaching', emoji: '💼', hint: 'Unternehmensberatung, Life Coaching, Training' },
-  { id: 'tech', label: 'Tech / Software', emoji: '💻', hint: 'Apps, SaaS, Webentwicklung, IT-Services' },
-  { id: 'ecommerce', label: 'E-Commerce / Handel', emoji: '🛒', hint: 'Online-Shop, Dropshipping, Retail' },
-  { id: 'service', label: 'Dienstleistung', emoji: '🛠️', hint: 'Handwerk, Reparatur, Haushaltsservices' },
-  { id: 'creative', label: 'Kreativ / Design', emoji: '🎨', hint: 'Grafik, Foto, Video, Marketing' },
-  { id: 'health', label: 'Gesundheit / Wellness', emoji: '💪', hint: 'Fitness, Ernährung, Therapie, Pflege' },
-  { id: 'gastro', label: 'Gastronomie / Food', emoji: '🍽️', hint: 'Restaurant, Catering, Food Truck' },
-  { id: 'education', label: 'Bildung / Training', emoji: '📚', hint: 'Kurse, Nachhilfe, Workshops' },
+  { id: 'consulting', label: 'Beratung / Coaching', emoji: '💼', hint: 'Unternehmensberatung, Life Coaching, Training', backendType: 'consulting' },
+  { id: 'tech', label: 'Tech / Software', emoji: '💻', hint: 'Apps, SaaS, Webentwicklung, IT-Services', backendType: 'saas' },
+  { id: 'ecommerce', label: 'E-Commerce / Handel', emoji: '🛒', hint: 'Online-Shop, Dropshipping, Retail', backendType: 'ecommerce' },
+  { id: 'service', label: 'Dienstleistung', emoji: '🛠️', hint: 'Handwerk, Reparatur, Haushaltsservices', backendType: 'services' },
+  { id: 'creative', label: 'Kreativ / Design', emoji: '🎨', hint: 'Grafik, Foto, Video, Marketing', backendType: 'creative' },
+  { id: 'health', label: 'Gesundheit / Wellness', emoji: '💪', hint: 'Fitness, Ernährung, Therapie, Pflege', backendType: 'health' },
+  { id: 'gastro', label: 'Gastronomie / Food', emoji: '🍽️', hint: 'Restaurant, Catering, Food Truck', backendType: 'restaurant' },
+  { id: 'education', label: 'Bildung / Training', emoji: '📚', hint: 'Kurse, Nachhilfe, Workshops', backendType: 'services' },
 ];
 
 const SMART_DEFAULTS: Record<string, SmartDefault> = {
@@ -953,79 +960,148 @@ const LoadingScreen: React.FC<{ theme: Theme; message: string }> = ({ theme, mes
   );
 };
 
-// Simple Results Display (placeholder - integrate with full ResultsPage)
-const SimpleResultsScreen: React.FC<{
-  theme: Theme;
-  results: AssessmentResults;
-  userName: string;
-}> = ({ theme, results, userName }) => {
-  const styles = getThemeStyles(theme);
-  const profile = results.personality_profile;
+// Archetype determination with colors and emojis for ResultsPage
+const ARCHETYPE_CONFIGS = [
+  {
+    id: 'visionary_innovator',
+    name: 'Mutiger Innovator',
+    emoji: '🚀',
+    color: '#E53E3E',
+    description: 'Du siehst Möglichkeiten, wo andere Risiken sehen. Deine Kombination aus Innovationsfreude und Risikobereitschaft macht dich zum idealen Gründer für disruptive Geschäftsmodelle.',
+    strengths: ['Erkennt neue Geschäftsmöglichkeiten schnell', 'Handelt auch bei Unsicherheit entschlossen', 'Bringt frische Ideen in etablierte Märkte'],
+    growth_areas: ['Manchmal zu schnelles Handeln ohne Absicherung', 'Detailplanung kann zu kurz kommen'],
+  },
+  {
+    id: 'methodical_builder',
+    name: 'Systematischer Stratege',
+    emoji: '🏗️',
+    color: '#3182CE',
+    description: 'Du baust nachhaltig und durchdacht auf. Deine Stärke ist systematisches Arbeiten – du legst Fundamente, die tragen.',
+    strengths: ['Strukturiertes, nachhaltiges Vorgehen', 'Starke Detailorientierung und Qualität', 'Verlässlicher Projektabschluss'],
+    growth_areas: ['Kann bei schnellen Änderungen zögerlich sein', 'Perfektion manchmal vor Geschwindigkeit'],
+  },
+  {
+    id: 'pragmatic_achiever',
+    name: 'Pragmatischer Macher',
+    emoji: '⚡',
+    color: '#38A169',
+    description: 'Du packst an und bringst Dinge auf den Weg. Ergebnisse zählen für dich mehr als Theorien – du machst es einfach.',
+    strengths: ['Starke Umsetzungskraft', 'Ergebnisorientiertes Handeln', 'Schnelle Entscheidungsfindung'],
+    growth_areas: ['Manchmal zu schnell ohne ausreichende Analyse', 'Geduld bei langen Prozessen aufbauen'],
+  },
+  {
+    id: 'balanced_entrepreneur',
+    name: 'Vielseitiger Unternehmer',
+    emoji: '🎯',
+    color: '#805AD5',
+    description: 'Du kombinierst verschiedene Stärken zu einem ausgewogenen Profil. Deine Flexibilität ist dein größter Trumpf.',
+    strengths: ['Hohe Anpassungsfähigkeit', 'Ausgewogene Stärken', 'Vielseitige Perspektiven'],
+    growth_areas: ['Fokus auf Kernstärken weiter entwickeln', 'Klare Positionierung schärfen'],
+  },
+];
+
+// Transform backend results to ResultsPage format
+const transformBackendToResultsPage = (
+  backendResults: AssessmentResults,
+  businessContext: BusinessContext | null,
+  sessionId: string
+) => {
+  // Determine archetype from dimension scores
+  const archetype = (() => {
+    if (!backendResults.dimensions) {
+      return ARCHETYPE_CONFIGS[ARCHETYPE_CONFIGS.length - 1];
+    }
+    
+    const dims = backendResults.dimensions;
+    const getLevel = (percentile: number): string => {
+      if (percentile >= 70) return 'high';
+      if (percentile >= 40) return 'medium';
+      return 'low';
+    };
+    
+    const levels: Record<string, string> = {};
+    for (const [dim, data] of Object.entries(dims)) {
+      levels[dim] = getLevel(data.percentile);
+    }
+    
+    if (levels.innovativeness === 'high' && levels.risk_taking === 'high') {
+      return ARCHETYPE_CONFIGS[0]; // Visionary
+    }
+    if (levels.achievement_orientation === 'high' && levels.self_efficacy === 'high') {
+      if (levels.proactiveness === 'high') {
+        return ARCHETYPE_CONFIGS[2]; // Pragmatic
+      }
+      return ARCHETYPE_CONFIGS[1]; // Methodical
+    }
+    
+    return ARCHETYPE_CONFIGS[ARCHETYPE_CONFIGS.length - 1]; // Balanced
+  })();
   
-  return (
-    <div className="max-w-2xl mx-auto animate-fade-in">
-      <div className="text-center mb-8">
-        <span className="text-6xl mb-4 block">🎉</span>
-        <h1 className={`text-3xl font-bold ${styles.text.primary}`}>
-          {userName}, dein Gründer-Profil!
-        </h1>
-      </div>
+  // Calculate business fit score
+  const businessFit = backendResults.gz_readiness?.approval_probability 
+    ?? backendResults.summary?.average_percentile 
+    ?? 70;
+  
+  // Transform dimensions to ResultsPage format
+  const transformedDimensions: Record<string, { percentile: number; level: 'high' | 'medium' | 'low' }> = {};
+  if (backendResults.dimensions) {
+    for (const [dim, data] of Object.entries(backendResults.dimensions)) {
+      const percentile = data.percentile;
+      let level: 'high' | 'medium' | 'low' = 'medium';
+      if (percentile >= 70) level = 'high';
+      else if (percentile < 40) level = 'low';
       
-      {/* Archetype Card */}
-      <div className={`${styles.card} rounded-2xl p-8 border mb-6 text-center`}>
-        <h2 className="text-2xl font-bold text-emerald-500 mb-2">
-          {profile.archetype_name}
-        </h2>
-        <p className={`text-lg italic ${styles.text.secondary} mb-4`}>
-          "{profile.tagline}"
-        </p>
-        <p className={styles.text.primary}>
-          {profile.description}
-        </p>
-        
-        {/* Success Prediction */}
-        <div className="mt-6 pt-6 border-t border-slate-700">
-          <div className="flex items-center justify-center gap-4">
-            <span className={styles.text.secondary}>GZ-Erfolgswahrscheinlichkeit:</span>
-            <span className="text-2xl font-bold text-emerald-500">
-              {profile.gz_success_prediction}%
-            </span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Strengths & Challenges */}
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        <div className={`${styles.card} rounded-xl p-6 border`}>
-          <h3 className="font-semibold text-emerald-500 mb-3">✅ Deine Stärken</h3>
-          <ul className="space-y-2">
-            {profile.primary_strengths.slice(0, 3).map((strength, i) => (
-              <li key={i} className={`text-sm ${styles.text.primary}`}>• {strength}</li>
-            ))}
-          </ul>
-        </div>
-        
-        <div className={`${styles.card} rounded-xl p-6 border`}>
-          <h3 className="font-semibold text-amber-500 mb-3">⚠️ Zu beachten</h3>
-          <ul className="space-y-2">
-            {profile.primary_challenges.slice(0, 3).map((challenge, i) => (
-              <li key={i} className={`text-sm ${styles.text.primary}`}>• {challenge}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
-      
-      {/* CTA */}
-      <div className="text-center">
-        <button className={`${styles.button.primary} px-8 py-4 rounded-xl font-semibold text-lg`}>
-          Zum kostenlosen Workshop →
-        </button>
-        <p className={`mt-4 text-sm ${styles.text.muted}`}>
-          Module 1 hilft dir, deine Stärken optimal für den GZ-Antrag zu nutzen.
-        </p>
-      </div>
-    </div>
-  );
+      transformedDimensions[dim] = { percentile, level };
+    }
+  }
+  
+  // Get GZ readiness
+  const gzReadiness = backendResults.gz_readiness?.approval_probability ?? 35;
+  
+  return {
+    session_id: sessionId,
+    business_context: {
+      type: businessContext?.category || 'other',
+      name_de: businessContext?.categoryLabel || 'Unternehmen'
+    },
+    personality_profile: {
+      archetype: archetype,
+      business_fit: businessFit,
+      dimensions: transformedDimensions
+    },
+    gap_analysis: {
+      readiness: {
+        current: gzReadiness,
+        after_module_1: Math.min(gzReadiness + 20, 95),
+        potential: 95,
+        label_de: gzReadiness >= 60 ? 'Gute Basis' : 'Grundlage geschaffen'
+      },
+      gaps: [
+        { id: 1, name_de: 'Vision & Problemdefinition', priority: 'critical' as const, weight: 20, module: 1, description: 'Deine Geschäftsidee präzise formulieren' },
+        { id: 2, name_de: 'Marktanalyse', priority: 'critical' as const, weight: 15, module: 2, description: 'Nachweis der Marktchancen' },
+        { id: 3, name_de: 'Marketing & Vertrieb', priority: 'high' as const, weight: 10, module: 3, description: 'Kundengewinnung' },
+        { id: 4, name_de: 'Finanzplan', priority: 'critical' as const, weight: 20, module: 4, description: '3-Jahres-Projektion' }
+      ],
+      completed: [{ name: 'Persönlichkeitsprofil' }, { name: 'Geschäftskontext' }]
+    },
+    cta: {
+      text: 'Starte deinen Weg zum fertigen Businessplan',
+      value: 'Komplett & einreichbereit für deinen Gründungszuschuss',
+      subvalue: 'Bis zu €20.000 steuerfreie Förderung sichern',
+      urgency: 'Modul 1 kostenlos testen',
+      time: '20-25 Min',
+      outcome: 'Am Ende des Workshops hast du einen vollständigen, professionellen Businessplan – personalisiert für dein Geschäft und optimiert für die fachkundige Stelle.',
+      workshopResult: {
+        title: 'Das bekommst du am Ende:',
+        items: [
+          'Vollständiger Businessplan (25-30 Seiten)',
+          'Finanzplan mit 3-Jahres-Projektion',
+          'Personalisiert auf deine Stärken',
+          'Optimiert für GZ-Genehmigung'
+        ]
+      }
+    }
+  };
 };
 
 // ============================================================================
@@ -1042,7 +1118,7 @@ export const GruenderAIAssessment: React.FC = () => {
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<CategoryOption | null>(null);
-  const [_businessContext, setBusinessContext] = useState<BusinessContext | null>(null);
+  const [businessContext, setBusinessContext] = useState<BusinessContext | null>(null);
   
   // Assessment State
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -1070,10 +1146,14 @@ export const GruenderAIAssessment: React.FC = () => {
     setIsLoading(true);
     setError(null);
     
+    // Find the backend business type from category
+    const categoryConfig = BUSINESS_CATEGORIES.find(c => c.id === context.category);
+    const backendBusinessType = categoryConfig?.backendType || context.category;
+    
     try {
-      // Map frontend context to backend format
+      // Map frontend context to backend format with correct business type
       const backendContext = {
-        business_type: context.category,
+        business_type: backendBusinessType,
         target_customer: context.targetCustomer,
         stage: context.stage,
       };
@@ -1126,6 +1206,10 @@ export const GruenderAIAssessment: React.FC = () => {
     setIsLoading(true);
     setQuestionsAnswered(prev => prev + 1);
     
+    // Get business labels for personalization
+    const businessLabel = selectedCategory?.label || 'Business';
+    const customerLabel = businessContext?.targetCustomerLabel || 'Kunden';
+    
     try {
       const response = await apiCall(`/api/v1/assessment/${sessionId}/respond`, 'POST', {
         scenario_id: currentScenario.scenario_id,
@@ -1158,43 +1242,59 @@ export const GruenderAIAssessment: React.FC = () => {
         ...progress,
         current_item: progress.current_item + 1,
         percentage: Math.min(100, progress.percentage + 10),
+        dimensions_assessed: Math.floor((progress.current_item + 1) / 2),
+        total_dimensions: 7,
       };
       setProgress(newProgress);
       
+      // Show micro-insight every 3rd question
+      if ((questionsAnswered + 1) % 3 === 0 && newProgress.percentage < 100) {
+        const insightIndex = Math.floor((questionsAnswered + 1) / 3) - 1;
+        const insight = MICRO_INSIGHTS[insightIndex % MICRO_INSIGHTS.length];
+        setCurrentInsight(insight);
+        setShowMicroInsight(true);
+      }
+      
       if (newProgress.percentage >= 100) {
-        // Mock results
+        // Mock results with dimension data (matching backend structure)
         setResults({
-          personality_profile: {
-            archetype_id: 'innovator',
-            archetype_name: 'Der Visionäre Innovator',
-            tagline: 'Zukunft gestalten, nicht verwalten',
-            description: 'Du denkst in Möglichkeiten, nicht in Grenzen. Deine Stärke liegt darin, neue Wege zu finden wo andere nur Sackgassen sehen.',
-            primary_strengths: ['Kreatives Denken', 'Risikobereitschaft', 'Zukunftsorientierung'],
-            primary_challenges: ['Detailarbeit kann ungeduldig machen', 'Manchmal zu viele Ideen gleichzeitig'],
-            gz_success_prediction: 78,
+          dimensions: {
+            innovativeness: { theta: 0.8, percentile: 72, score: 72, level: 'high', level_de: 'Hoch', interpretation_de: 'Innovationsfreude' },
+            risk_taking: { theta: 0.5, percentile: 62, score: 62, level: 'medium', level_de: 'Mittel', interpretation_de: 'Risikobereitschaft' },
+            achievement_orientation: { theta: 1.0, percentile: 78, score: 78, level: 'high', level_de: 'Hoch', interpretation_de: 'Leistungsorientierung' },
+            autonomy_orientation: { theta: 0.6, percentile: 65, score: 65, level: 'medium', level_de: 'Mittel', interpretation_de: 'Autonomieorientierung' },
+            proactiveness: { theta: 0.9, percentile: 75, score: 75, level: 'high', level_de: 'Hoch', interpretation_de: 'Proaktivität' },
+            locus_of_control: { theta: 0.7, percentile: 68, score: 68, level: 'high', level_de: 'Hoch', interpretation_de: 'Kontrollüberzeugung' },
+            self_efficacy: { theta: 0.85, percentile: 74, score: 74, level: 'high', level_de: 'Hoch', interpretation_de: 'Selbstwirksamkeit' },
           },
-          dimension_scores: {},
-          gap_analysis: { priority_gaps: [], overall_readiness: 75 },
-          radar_chart_data: [],
+          summary: {
+            average_theta: 0.76,
+            average_percentile: 70,
+            average_score: 70,
+          },
+          gz_readiness: {
+            approval_probability: 78,
+            confidence: 'high',
+            strengths: ['Hohe Leistungsorientierung', 'Starke Proaktivität', 'Gute Selbstwirksamkeit'],
+            development_areas: ['Risikobereitschaft weiter entwickeln', 'Autonomie im Businessplan zeigen'],
+          },
         });
         setStage('results');
       } else {
-        // Generate next demo scenario
-        const scenarios = [
+        // Generate personalized demo scenarios based on business type
+        const scenarioTemplates = [
           {
-            scenario_id: `DEMO_${progress.current_item + 1}`,
-            situation: 'Ein wichtiger Kunde beschwert sich öffentlich über deine Dienstleistung. Die Kritik ist teilweise berechtigt.',
+            situation: `Ein ${customerLabel} deiner ${businessLabel} beschwert sich öffentlich. Die Kritik ist teilweise berechtigt.`,
             question: 'Wie reagierst du?',
             options: [
-              { id: 'A', text: 'Ich ignoriere es - nicht jeder Kunde ist zufriedenstellbar.' },
-              { id: 'B', text: 'Ich antworte defensiv und erkläre meine Sicht der Dinge.' },
+              { id: 'A', text: 'Ich ignoriere es - nicht jeder ist zufriedenstellbar.' },
+              { id: 'B', text: 'Ich antworte defensiv und erkläre meine Sicht.' },
               { id: 'C', text: 'Ich entschuldige mich öffentlich und biete eine Lösung an.' },
               { id: 'D', text: 'Ich kontaktiere den Kunden privat, um das Problem zu verstehen.' },
             ],
           },
           {
-            scenario_id: `DEMO_${progress.current_item + 1}`,
-            situation: 'Du hast die Möglichkeit, einen großen Auftrag anzunehmen, aber er würde deine Kapazitäten stark belasten.',
+            situation: `Du hast die Möglichkeit, einen großen Auftrag für deine ${businessLabel} anzunehmen, aber er würde deine Kapazitäten stark belasten.`,
             question: 'Was tust du?',
             options: [
               { id: 'A', text: 'Ablehnen - Qualität geht vor Quantität.' },
@@ -1203,13 +1303,82 @@ export const GruenderAIAssessment: React.FC = () => {
               { id: 'D', text: 'Teilweise annehmen und den Rest an Partner delegieren.' },
             ],
           },
+          {
+            situation: `Ein Wettbewerber in der ${businessLabel}-Branche kopiert dein Konzept und bietet es günstiger an.`,
+            question: 'Wie reagierst du?',
+            options: [
+              { id: 'A', text: 'Preise senken, um konkurrenzfähig zu bleiben.' },
+              { id: 'B', text: 'Qualität und Service verbessern, um mich abzuheben.' },
+              { id: 'C', text: 'Rechtliche Schritte prüfen.' },
+              { id: 'D', text: 'Neue Zielgruppen und Märkte erschließen.' },
+            ],
+          },
+          {
+            situation: `Deine ${businessLabel} läuft gut, aber du hast die Chance, in einen völlig neuen Markt zu expandieren.`,
+            question: 'Wie entscheidest du?',
+            options: [
+              { id: 'A', text: 'Fokus auf das bestehende Geschäft - nicht überreizen.' },
+              { id: 'B', text: 'Sofort expandieren - Wachstum ist wichtig.' },
+              { id: 'C', text: 'Erst ausführlich recherchieren, dann entscheiden.' },
+              { id: 'D', text: 'Klein testen, dann skalieren wenn es funktioniert.' },
+            ],
+          },
+          {
+            situation: `Ein potenzieller Investor bietet Kapital für deine ${businessLabel}, will aber 40% der Anteile.`,
+            question: 'Wie gehst du vor?',
+            options: [
+              { id: 'A', text: 'Ablehnen - Kontrolle behalten ist wichtiger.' },
+              { id: 'B', text: 'Sofort zusagen - Kapital ist Wachstum.' },
+              { id: 'C', text: 'Verhandeln für bessere Konditionen.' },
+              { id: 'D', text: 'Alternative Finanzierungsquellen suchen.' },
+            ],
+          },
+          {
+            situation: `Ein langjähriger ${customerLabel} deiner ${businessLabel} bittet um einen großen Rabatt aufgrund finanzieller Schwierigkeiten.`,
+            question: 'Wie reagierst du?',
+            options: [
+              { id: 'A', text: 'Kein Rabatt - Business ist Business.' },
+              { id: 'B', text: 'Vollen Rabatt gewähren - Kundenbindung ist wichtig.' },
+              { id: 'C', text: 'Kleinen Rabatt oder Zahlungsplan anbieten.' },
+              { id: 'D', text: 'Alternative Lösungen wie Tauschgeschäft vorschlagen.' },
+            ],
+          },
+          {
+            situation: `Du merkst, dass dein ursprüngliches Konzept für die ${businessLabel} nicht so funktioniert wie geplant.`,
+            question: 'Was tust du?',
+            options: [
+              { id: 'A', text: 'Weitermachen wie bisher - Geduld haben.' },
+              { id: 'B', text: 'Das Projekt aufgeben und neu starten.' },
+              { id: 'C', text: 'Feedback sammeln und das Konzept anpassen.' },
+              { id: 'D', text: 'Komplett umschwenken auf ein neues Geschäftsmodell.' },
+            ],
+          },
+          {
+            situation: `Ein Mitarbeiter deiner ${businessLabel} macht einen teuren Fehler, der ${customerLabel} verärgert.`,
+            question: 'Wie gehst du damit um?',
+            options: [
+              { id: 'A', text: 'Strenge Konsequenzen für den Mitarbeiter.' },
+              { id: 'B', text: 'Fehler intern besprechen, extern nichts sagen.' },
+              { id: 'C', text: 'Verantwortung übernehmen und Kunden entschädigen.' },
+              { id: 'D', text: 'Prozesse verbessern, um solche Fehler zu vermeiden.' },
+            ],
+          },
         ];
-        setCurrentScenario(scenarios[progress.current_item % scenarios.length]);
+        
+        const scenarioIndex = (progress.current_item) % scenarioTemplates.length;
+        const template = scenarioTemplates[scenarioIndex];
+        
+        setCurrentScenario({
+          scenario_id: `DEMO_${progress.current_item + 1}`,
+          situation: template.situation,
+          question: template.question,
+          options: template.options,
+        });
       }
     } finally {
       setIsLoading(false);
     }
-  }, [currentScenario, sessionId, questionsAnswered, progress]);
+  }, [currentScenario, sessionId, questionsAnswered, progress, selectedCategory, businessContext]);
   
   // Handle Business Context Confirmation (Smart Defaults)
   const handleBusinessConfirm = useCallback(() => {
@@ -1335,11 +1504,16 @@ export const GruenderAIAssessment: React.FC = () => {
         if (!results) {
           return <LoadingScreen theme={theme} message="Erstelle dein Profil..." />;
         }
+        // Transform backend results to ResultsPage format
+        const resultsPageData = transformBackendToResultsPage(
+          results,
+          businessContext,
+          sessionId || 'demo-session'
+        );
         return (
-          <SimpleResultsScreen
-            theme={theme}
-            results={results}
-            userName={userName}
+          <ResultsPage
+            sessionId={sessionId || undefined}
+            resultsData={resultsPageData}
           />
         );
       
