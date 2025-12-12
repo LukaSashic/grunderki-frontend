@@ -299,17 +299,6 @@ const getCustomerOptionsForCategory = (categoryId: string) => {
   return CUSTOMER_OPTIONS_BY_TYPE[categoryId] || CUSTOMER_OPTIONS_BY_TYPE['service'];
 };
 
-// Legacy fallback (no longer used but kept for compatibility)
-const CUSTOMER_OPTIONS = [
-  { id: 'b2b_small', label: 'Kleine Unternehmen (KMU)', emoji: '🏢' },
-  { id: 'b2b_large', label: 'Größere Unternehmen', emoji: '🏛️' },
-  { id: 'b2b_mixed', label: 'Unternehmen verschiedener Größen', emoji: '🏗️' },
-  { id: 'b2c_families', label: 'Familien', emoji: '👨‍👩‍👧‍👦' },
-  { id: 'b2c_young', label: 'Junge Erwachsene (18-35)', emoji: '👩‍💻' },
-  { id: 'b2c_professionals', label: 'Berufstätige', emoji: '👔' },
-  { id: 'b2c_mixed', label: 'Verschiedene Privatpersonen', emoji: '🌈' },
-];
-
 const STAGE_OPTIONS = [
   { id: 'idea', label: 'Nur eine Idee', emoji: '💡' },
   { id: 'planning', label: 'In der Planung', emoji: '📝' },
