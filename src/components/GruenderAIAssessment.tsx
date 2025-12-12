@@ -167,7 +167,7 @@ const SMART_DEFAULTS: Record<string, SmartDefault> = {
     customer: 'smb',
     customerLabel: 'Kleine & mittlere Unternehmen',
     stage: 'idea',
-    stageLabel: 'Ideenphase',
+    stageLabel: 'Positionierung klären',
     confidence: 0.75,
     insight: '75% der Berater starten mit B2B-Kunden'
   },
@@ -175,15 +175,15 @@ const SMART_DEFAULTS: Record<string, SmartDefault> = {
     customer: 'startups',
     customerLabel: 'Startups',
     stage: 'idea',
-    stageLabel: 'Ideenphase',
+    stageLabel: 'Nur eine Idee',
     confidence: 0.70,
     insight: 'Tech-Gründer haben oft schon erste Prototypen'
   },
   ecommerce: {
     customer: 'consumers',
     customerLabel: 'Endverbraucher (B2C)',
-    stage: 'planning',
-    stageLabel: 'In der Planung',
+    stage: 'idea',
+    stageLabel: 'Produktidee',
     confidence: 0.65,
     insight: 'E-Commerce startet meist mit klarer Nische'
   },
@@ -191,7 +191,7 @@ const SMART_DEFAULTS: Record<string, SmartDefault> = {
     customer: 'homeowners',
     customerLabel: 'Hausbesitzer / Mieter',
     stage: 'idea',
-    stageLabel: 'Ideenphase',
+    stageLabel: 'Nur eine Idee',
     confidence: 0.70,
     insight: 'Lokale Dienstleister haben oft schon Netzwerke'
   },
@@ -199,23 +199,23 @@ const SMART_DEFAULTS: Record<string, SmartDefault> = {
     customer: 'businesses',
     customerLabel: 'Unternehmen / Marken',
     stage: 'idea',
-    stageLabel: 'Ideenphase',
+    stageLabel: 'Portfolio aufbauen',
     confidence: 0.72,
     insight: 'Kreative bringen meist Portfolio-Erfahrung mit'
   },
   health: {
     customer: 'busy_professionals',
     customerLabel: 'Berufstätige mit wenig Zeit',
-    stage: 'planning',
-    stageLabel: 'In der Planung',
+    stage: 'idea',
+    stageLabel: 'Konzept entwickeln',
     confidence: 0.68,
     insight: 'Gesundheitsbranche erfordert oft Zertifikate'
   },
   gastro: {
     customer: 'families',
     customerLabel: 'Familien mit Kindern',
-    stage: 'planning',
-    stageLabel: 'In der Planung',
+    stage: 'idea',
+    stageLabel: 'Konzeptphase',
     confidence: 0.80,
     insight: 'Gastro braucht Standort & Konzept zuerst'
   },
@@ -223,7 +223,7 @@ const SMART_DEFAULTS: Record<string, SmartDefault> = {
     customer: 'students',
     customerLabel: 'Schüler / Studenten',
     stage: 'idea',
-    stageLabel: 'Ideenphase',
+    stageLabel: 'Kurskonzept',
     confidence: 0.65,
     insight: 'Online-Bildung wächst stark'
   },
@@ -299,12 +299,62 @@ const getCustomerOptionsForCategory = (categoryId: string) => {
   return CUSTOMER_OPTIONS_BY_TYPE[categoryId] || CUSTOMER_OPTIONS_BY_TYPE['service'];
 };
 
-const STAGE_OPTIONS = [
-  { id: 'idea', label: 'Nur eine Idee', emoji: '💡' },
-  { id: 'planning', label: 'In der Planung', emoji: '📝' },
-  { id: 'prototype', label: 'Erste Tests / Prototyp', emoji: '🔧' },
-  { id: 'mvp', label: 'Erste Kunden', emoji: '🚀' },
-];
+// Dynamic stage options based on business type
+const STAGE_OPTIONS_BY_TYPE: Record<string, Array<{ id: string; label: string; emoji: string }>> = {
+  gastro: [
+    { id: 'idea', label: 'Konzeptphase', emoji: '💡' },
+    { id: 'planning', label: 'Standort & Planung', emoji: '📍' },
+    { id: 'preparation', label: 'Genehmigungen & Aufbau', emoji: '📋' },
+    { id: 'launch', label: 'Kurz vor Eröffnung', emoji: '🚀' },
+  ],
+  tech: [
+    { id: 'idea', label: 'Nur eine Idee', emoji: '💡' },
+    { id: 'prototype', label: 'Prototyp / MVP', emoji: '🔧' },
+    { id: 'beta', label: 'Beta-Testing', emoji: '🧪' },
+    { id: 'launched', label: 'Erste Nutzer', emoji: '🚀' },
+  ],
+  consulting: [
+    { id: 'idea', label: 'Positionierung klären', emoji: '💡' },
+    { id: 'planning', label: 'Angebot entwickeln', emoji: '📝' },
+    { id: 'networking', label: 'Netzwerk aufbauen', emoji: '🤝' },
+    { id: 'clients', label: 'Erste Kunden', emoji: '🚀' },
+  ],
+  ecommerce: [
+    { id: 'idea', label: 'Produktidee', emoji: '💡' },
+    { id: 'sourcing', label: 'Lieferanten & Produkte', emoji: '📦' },
+    { id: 'shop', label: 'Shop-Aufbau', emoji: '🛒' },
+    { id: 'launched', label: 'Erste Verkäufe', emoji: '🚀' },
+  ],
+  service: [
+    { id: 'idea', label: 'Nur eine Idee', emoji: '💡' },
+    { id: 'planning', label: 'In der Planung', emoji: '📝' },
+    { id: 'equipment', label: 'Ausrüstung & Setup', emoji: '🔧' },
+    { id: 'clients', label: 'Erste Kunden', emoji: '🚀' },
+  ],
+  creative: [
+    { id: 'idea', label: 'Portfolio aufbauen', emoji: '💡' },
+    { id: 'planning', label: 'Positionierung', emoji: '🎯' },
+    { id: 'presence', label: 'Online-Präsenz', emoji: '🌐' },
+    { id: 'clients', label: 'Erste Aufträge', emoji: '🚀' },
+  ],
+  health: [
+    { id: 'idea', label: 'Konzept entwickeln', emoji: '💡' },
+    { id: 'certification', label: 'Zertifizierung', emoji: '📜' },
+    { id: 'setup', label: 'Räume & Ausstattung', emoji: '🏥' },
+    { id: 'clients', label: 'Erste Klienten', emoji: '🚀' },
+  ],
+  education: [
+    { id: 'idea', label: 'Kurskonzept', emoji: '💡' },
+    { id: 'content', label: 'Inhalte erstellen', emoji: '📚' },
+    { id: 'platform', label: 'Plattform wählen', emoji: '💻' },
+    { id: 'students', label: 'Erste Teilnehmer', emoji: '🚀' },
+  ],
+};
+
+// Helper function to get stage options for a category
+const getStageOptionsForCategory = (categoryId: string) => {
+  return STAGE_OPTIONS_BY_TYPE[categoryId] || STAGE_OPTIONS_BY_TYPE['service'];
+};
 
 // ============================================================================
 // MICRO INSIGHTS (shown every 3rd question)
@@ -823,18 +873,22 @@ const CustomizeBusinessScreen: React.FC<{
 }> = ({ theme, category, defaults, onComplete, onBack }) => {
   // Get dynamic options based on selected category
   const customerOptions = getCustomerOptionsForCategory(category.id);
+  const stageOptions = getStageOptionsForCategory(category.id);
   
   // Initialize with first option from dynamic list or default
   const [selectedCustomer, setSelectedCustomer] = useState(() => {
     const defaultOption = customerOptions.find(c => c.id === defaults.customer);
     return defaultOption ? defaults.customer : customerOptions[0]?.id || defaults.customer;
   });
-  const [selectedStage, setSelectedStage] = useState(defaults.stage);
+  const [selectedStage, setSelectedStage] = useState(() => {
+    const defaultOption = stageOptions.find(s => s.id === defaults.stage);
+    return defaultOption ? defaults.stage : stageOptions[0]?.id || defaults.stage;
+  });
   const styles = getThemeStyles(theme);
   
   const handleSubmit = () => {
     const customer = customerOptions.find(c => c.id === selectedCustomer);
-    const stage = STAGE_OPTIONS.find(s => s.id === selectedStage);
+    const stage = stageOptions.find(s => s.id === selectedStage);
     if (customer && stage) {
       onComplete(customer.id, customer.label, stage.id, stage.label);
     }
@@ -878,13 +932,13 @@ const CustomizeBusinessScreen: React.FC<{
           </div>
         </div>
         
-        {/* Stage Selection */}
+        {/* Stage Selection - NOW DYNAMIC! */}
         <div>
           <label className={`block mb-3 font-medium ${styles.text.primary}`}>
             Dein Stadium:
           </label>
           <div className="grid grid-cols-2 gap-2">
-            {STAGE_OPTIONS.map((option) => (
+            {stageOptions.map((option) => (
               <button
                 key={option.id}
                 onClick={() => setSelectedStage(option.id)}
